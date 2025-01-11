@@ -1,0 +1,13 @@
+[package]
+name = "chessagon-engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nalgebra.workspace = true
+thiserror.workspace = true
+strum.workspace = true
+hext-boards.workspace = true # This shouldn't really be a dependency.
+
+[dev-dependencies]
+pretty_assertions = "1.4.1"

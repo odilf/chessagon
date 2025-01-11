@@ -1,0 +1,17 @@
+[workspace]
+packages = ["crates/engine"]
+
+[workspace.dependencies]
+nalgebra = "0.33.2"
+thiserror = "2.0.8"
+strum = { version = "0.26.3", features = ["derive"] }
+hext-boards = "0.3.0"
+
+[package]
+name = "chessagon"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chessagon-engine = { path = "crates/engine" }
+
