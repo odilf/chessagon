@@ -16,7 +16,7 @@ pub fn get_move(
     }
 
     let delta = destination - origin;
-    let (unit, distance) = if delta.x > delta.y {
+    let (stride, distance) = if delta.x > delta.y {
         (
             Vec2::new_unchecked(2 * delta.x.signum(), delta.y.signum()),
             delta.x.abs(),
@@ -31,8 +31,8 @@ pub fn get_move(
     // Check if it's blocked
     for i in 0..distance {
         let position = Vec2::new_unchecked(
-            origin.x.wrapping_add((i * unit.x) as u8),
-            origin.y.wrapping_add((i * unit.y) as u8),
+            origin.x.wrapping_add((i * stride.x) as u8),
+            origin.y.wrapping_add((i * stride.y) as u8),
         );
         if let Some((piece, blocker_color)) = board.get_either(position) {
             return Err(MoveError::Blocked {

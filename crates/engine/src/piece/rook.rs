@@ -14,13 +14,13 @@ pub fn get_move(
     }
 
     let distance = if delta.x == 0 { delta.x } else { delta.y };
-    let unit = delta.map(|x| x.signum());
+    let stride = delta.map(|x| x.signum());
 
     // Check if it's blocked
     for i in 0..distance {
         let position = Vec2::new_unchecked(
-            origin.x.wrapping_add((i * unit.x) as u8),
-            origin.y.wrapping_add((i * unit.y) as u8),
+            origin.x.wrapping_add((i * stride.x) as u8),
+            origin.y.wrapping_add((i * stride.y) as u8),
         );
         if let Some((piece, blocker_color)) = board.get_either(position) {
             return Err(MoveError::Blocked {
