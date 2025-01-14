@@ -1,5 +1,6 @@
 pub mod bishop;
 pub mod king;
+pub mod knight;
 pub mod pawn;
 pub mod queen;
 pub mod rook;
@@ -47,7 +48,7 @@ impl Piece {
         let mov = match self {
             Self::Pawn => pawn::get_move(origin, destination, board, color)?,
             Self::Bishop => bishop::get_move(origin, destination, board, color)?,
-            Self::Knight => todo!(),
+            Self::Knight => knight::get_move(origin, destination, board, color)?,
             Self::Rook => rook::get_move(origin, destination, board, color)?,
             Self::Queen => queen::get_move(origin, destination, board, color)?,
             Self::King => king::get_move(origin, destination, board, color)?,
@@ -85,8 +86,8 @@ pub enum MoveError {
     #[error("Can't move bishop")]
     Bishop(#[from] bishop::MoveError),
 
-    // #[error("Can't move knight")]
-    // Knight(#[from] knight::MoveError),
+    #[error("Can't move knight")]
+    Knight(#[from] knight::MoveError),
 
     #[error("Can't move rook")]
     Rook(#[from] rook::MoveError),

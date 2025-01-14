@@ -16,6 +16,8 @@ pub fn get_move(
     let distance = if delta.x == 0 { delta.x } else { delta.y };
     let stride = delta.map(|x| x.signum());
 
+    // TODO: Check for castling.
+
     // Check if it's blocked
     for i in 0..distance {
         let position = Vec2::new_unchecked(

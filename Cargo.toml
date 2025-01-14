@@ -5,7 +5,7 @@ packages = ["crates/engine"]
 nalgebra = "0.33.2"
 thiserror = "2.0.8"
 strum = { version = "0.26.3", features = ["derive"] }
-hext-boards = "0.3.0"
+hext-boards = "0.4.0"
 
 [package]
 name = "chessagon"

@@ -5,16 +5,9 @@ pub fn visualize_tile_property<T>(
     property: impl Fn(Vec2) -> T,
     to_char: impl Fn(&T) -> char,
 ) -> String {
-    let hext_board = HexagonalBoard {
-        values: Vec2::iter()
-            .map(|position| {
-                (
-                    (position.x as i32, position.y as i32).into(), // TODO: Shouldn't require `glam::IVec2`
-                    property(position),
-                )
-            })
-            .collect(),
-    };
+    let hext_board = Vec2::iter()
+        .map(|position| ([position.x as i32, position.y as i32], property(position)))
+        .collect::<HexagonalBoard<_>>();
 
     hext_board.render_with(to_char)
 }
