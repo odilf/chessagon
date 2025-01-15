@@ -19,3 +19,4 @@ pub const RANKS: &str = include_str!("./ranks.txt");
 pub const RANK_WIDTHS: &str = include_str!("./rank_widths.txt");
 pub const MIN_VALID_RANK_COORDINATES: &str = include_str!("./min_valid_rank_coordinates.txt");
 pub const INDICES: &str = include_str!("./indices.txt");
+pub const INITIAL_BOARD: &str = include_str!("./initial_board.txt");

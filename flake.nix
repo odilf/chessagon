@@ -1,17 +1,24 @@
 {
-  description = "Declarative service manager tailored for home servers";
+  description = "Hexagonal chess";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    rust-overlay.url = "github:oxalica/rust-overlay";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
   outputs =
-    { nixpkgs, flake-utils, ... }:
+    {
+      nixpkgs,
+      flake-utils,
+      rust-overlay,
+      ...
+    }:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = import nixpkgs { inherit system; };
+        overlays = [ (import rust-overlay) ];
+        pkgs = import nixpkgs { inherit system overlays; };
       in
       rec {
         packages.default = pkgs.callPackage ./default.nix { };
@@ -20,8 +27,10 @@
 
         devShells.default = pkgs.mkShell {
           buildInputs = [
-            pkgs.cargo
+            pkgs.rust-bin.beta.latest.default
+            pkgs.rust-analyzer
             pkgs.cargo-nextest
+
             pkgs.jujutsu
             packages.default.buildInputs
           ];

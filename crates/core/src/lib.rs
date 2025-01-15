@@ -1,15 +1,11 @@
 pub mod board;
 pub mod coordinate;
 pub mod diagrams;
+pub mod game;
 pub mod mov;
 pub mod piece;
 
-mod color;
+mod sides;
 
-pub use color::Color;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Side {
-    King,
-    Queen,
-}
+pub use coordinate::Vec2;
+pub use sides::{Color, Side};

@@ -1,8 +1,12 @@
 [package]
-name = "engine"
+name = "chessagon-engine"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 nalgebra.workspace = true
+tracing.workspace = true
 chessagon-core = { path = "../core" }
+
+[dev-dependencies]
+tracing-subscriber.workspace = true

@@ -1,6 +1,7 @@
 pub mod bishop;
 pub mod king;
 pub mod knight;
+pub mod movement;
 pub mod pawn;
 pub mod queen;
 pub mod rook;
@@ -10,13 +11,13 @@ use core::fmt;
 use strum::EnumString;
 
 use crate::{
+    Color,
     board::Board,
     coordinate::Vec2,
-    mov::{FullMove, MoveMeta},
-    Color,
+    mov::{Move, MoveMeta},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString, Hash)]
 pub enum Piece {
     Pawn,
     Knight,
@@ -38,12 +39,16 @@ impl Piece {
         destination: Vec2,
         board: &Board,
         color: Color,
-    ) -> Result<FullMove, MoveError> {
+    ) -> Result<(Move, MoveMeta), MoveError> {
         assert_eq!(
             board.get(origin, color).as_ref(),
             Some(self),
             "The board need to contain `self` in `origin`"
         );
+
+        if origin == destination {
+            return Err(MoveError::NullMovement);
+        }
 
         let mov = match self {
             Self::Pawn => pawn::get_move(origin, destination, board, color)?,
@@ -56,29 +61,32 @@ impl Piece {
 
         // TODO: Implement checking for checks
         let checks = None;
+        let meta = MoveMeta { color, checks };
 
-        Ok(FullMove {
-            mov,
-            meta: MoveMeta { color, checks },
-        })
+        Ok((mov, meta))
     }
 
-    pub fn enumerate_legal_moves<'b>(
-        &self,
-        origin: Vec2,
-        board: &'b Board,
-        color: Color,
-    ) -> impl Iterator<Item = FullMove> + use<'_, 'b> {
-        // TODO: Implement this more optimally.
-        Vec2::iter()
-            .filter_map(move |destination| self.get_move(origin, destination, board, color).ok())
+    pub fn initial_configuration() -> impl Iterator<Item = (Piece, Vec2, Color)> {
+        pawn::initial_configuration()
+            .map(|(p, c)| (Piece::Pawn, p, c))
+            .chain(knight::initial_configuration().map(|(p, c)| (Piece::Knight, p, c)))
+            .chain(bishop::initial_configuration().map(|(p, c)| (Piece::Bishop, p, c)))
+            .chain(rook::initial_configuration().map(|(p, c)| (Piece::Rook, p, c)))
+            .chain(queen::initial_configuration().map(|(p, c)| (Piece::Queen, p, c)))
+            .chain(king::initial_configuration().map(|(p, c)| (Piece::King, p, c)))
     }
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum MoveError {
-    #[error("There is no piece at {position}")]
+    #[error("There is no piece to move at {position}")]
     PieceNotPresent { position: Vec2 },
+
+    #[error("The piece at {position} is {color}, you're not allowed to move it")]
+    NotYourPiece { position: Vec2, color: Color },
+
+    #[error("The origin and the destination can't be the same tile")]
+    NullMovement,
 
     #[error("Can't move pawn")]
     Pawn(#[from] pawn::MoveError),
@@ -100,7 +108,7 @@ pub enum MoveError {
 }
 
 impl Piece {
-    pub fn name(self) -> &'static str {
+    pub const fn name(self) -> &'static str {
         match self {
             Piece::Pawn => "pawn",
             Piece::Knight => "knight",
@@ -111,7 +119,7 @@ impl Piece {
         }
     }
 
-    pub fn representing_letter(self) -> char {
+    pub const fn representing_letter(self) -> char {
         match self {
             Piece::Pawn => 'P',
             Piece::Knight => 'N',
@@ -120,6 +128,26 @@ impl Piece {
             Piece::Queen => 'Q',
             Piece::King => 'K',
         }
+    }
+
+    /// The numeric value of the piece.
+    ///
+    /// Returns [`None`] for [`Piece::King`].
+    ///
+    /// - Pawns are 1
+    /// - Knights and bishops are 3
+    /// - Rooks are 5
+    /// - Queens is 9
+    /// - King is invaluable
+    pub const fn value(self) -> Option<u8> {
+        Some(match self {
+            Piece::Pawn => 1,
+            Piece::Knight => 3,
+            Piece::Bishop => 3,
+            Piece::Rook => 5,
+            Piece::Queen => 9,
+            Piece::King => return None,
+        })
     }
 
     pub fn emoji(self, color: Color) -> char {

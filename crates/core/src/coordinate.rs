@@ -18,13 +18,22 @@
 //! neighbors are at `1/√2` distances, which are very annoying. TODO: Is this necessarly true?
 
 use core::fmt;
+use std::fmt::Debug;
 use std::ops::{self, Deref, DerefMut};
 
-use nalgebra::{coordinates::XY, Scalar};
+use std::hash::Hash;
+
+use nalgebra::{Scalar, coordinates::XY};
 
 /// A vector in hexagonal coordinates, inside of the hexagonal chessboard.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Vec2<T = u8>(nalgebra::Vector2<T>);
+
+impl<T: Hash + Scalar> Hash for Vec2<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state)
+    }
+}
 
 impl<T: Scalar> Deref for Vec2<T> {
     type Target = XY<T>;
@@ -66,12 +75,12 @@ impl<T> Vec2<T> {
         Self(vec)
     }
 
-    pub fn map<U>(self, f: impl Fn(T) -> U) -> Vec2<U>
-    where
-        T: Copy,
-    {
-        Vec2::new_unchecked(f(self.x()), f(self.y()))
-    }
+    // pub fn map<U>(self, f: impl Fn(T) -> U) -> Vec2<U>
+    // where
+    //     T: Copy,
+    // {
+    //     Vec2::new_unchecked(f(self.x()), f(self.y()))
+    // }
 }
 
 impl Vec2 {
@@ -205,6 +214,10 @@ impl Vec2 {
     }
 }
 
+impl Vec2<i8> {
+    pub const ZERO: Self = Vec2::new_unchecked(0, 0);
+}
+
 /// Type-alias for [`Vec2`]. A [`Vec2`] is always in hexagonal coordinates, but [`HVec2`] is useful if you want to more clearly differentiate between hexagonal and cartesian ([`CVec2`]) coordinates.
 pub type HVec2<T> = Vec2<T>;
 
@@ -228,6 +241,36 @@ impl ops::Add<Vec2> for Vec2 {
     type Output = Vec2<u8>;
     fn add(self, rhs: Vec2) -> Self::Output {
         Vec2(self.0 + rhs.0)
+    }
+}
+
+impl ops::Add<Vec2<i8>> for Vec2 {
+    type Output = Vec2<u8>;
+    fn add(self, rhs: Vec2<i8>) -> Self::Output {
+        Vec2::new_unchecked(
+            self.x.wrapping_add(rhs.x as u8),
+            self.y.wrapping_add(rhs.y as u8),
+        )
+    }
+}
+
+impl<T> ops::Mul<T> for Vec2<T>
+where
+    T: Copy + ops::Mul<T, Output = T>,
+{
+    type Output = Vec2<T>;
+    fn mul(self, rhs: T) -> Self::Output {
+        Vec2::new_unchecked(self.x() * rhs, self.y() * rhs)
+    }
+}
+
+impl<T> ops::Div<T> for Vec2<T>
+where
+    T: Copy + ops::Div<T, Output = T>,
+{
+    type Output = Vec2<T>;
+    fn div(self, rhs: T) -> Self::Output {
+        Vec2::new_unchecked(self.x() / rhs, self.y() / rhs)
     }
 }
 
