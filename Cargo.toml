@@ -1,5 +1,6 @@
 [workspace]
 packages = ["crates/core"]
+members = ["crates/engine"]
 
 [workspace.dependencies]
 nalgebra = "0.33.2"
