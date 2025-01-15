@@ -1,5 +1,5 @@
 [workspace]
-packages = ["crates/engine"]
+packages = ["crates/core"]
 
 [workspace.dependencies]
 nalgebra = "0.33.2"
@@ -13,5 +13,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-chessagon-engine = { path = "crates/engine" }
+chessagon-core = { path = "crates/core" }
 

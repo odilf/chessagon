@@ -27,11 +27,11 @@ checksum = "ef657dfab802224e671f5818e9a4935f9b1957ed18e58292690cc39e7a4092a3"
 name = "chessagon"
 version = "0.1.0"
 dependencies = [
- "chessagon-engine",
+ "chessagon-core",
 ]
 
 [[package]]
-name = "chessagon-engine"
+name = "chessagon-core"
 version = "0.1.0"
 dependencies = [
  "hext-boards",
