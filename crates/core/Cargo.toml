@@ -7,7 +7,7 @@ edition = "2021"
 nalgebra.workspace = true
 thiserror.workspace = true
 strum.workspace = true
-hext-boards.workspace = true # This shouldn't really be a dependency.
 
 [dev-dependencies]
+hext-boards.workspace = true 
 pretty_assertions = "1.4.1"

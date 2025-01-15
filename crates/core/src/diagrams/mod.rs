@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 use crate::coordinate::Vec2;
 use hext_boards::HexagonalBoard;
 
