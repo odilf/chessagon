@@ -42,7 +42,7 @@ impl Piece {
         assert_eq!(
             board.get(origin, color).as_ref(),
             Some(self),
-            "The board need to contain `Self` in `origin`"
+            "The board need to contain `self` in `origin`"
         );
 
         let mov = match self {
@@ -145,7 +145,7 @@ impl Piece {
 }
 
 impl fmt::Display for Piece {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.name())
     }
 }
