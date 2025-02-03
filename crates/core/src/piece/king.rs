@@ -1,5 +1,10 @@
 use crate::{Color, board::Board, coordinate::Vec2, mov::Move, piece::Piece};
 
+/// Gets a move from `origin` to `destination` if the movement is king-like.
+///
+/// See the [module-level docs](self) for more info about how a king moves.
+///
+/// See [`Piece::get_move`](super::Piece::get_move) for more details about pre and postconditions.
 pub fn get_move(
     origin: Vec2,
     destination: Vec2,

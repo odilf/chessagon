@@ -8,5 +8,8 @@ nalgebra.workspace = true
 tracing.workspace = true
 chessagon-core = { path = "../core" }
 
+[lints]
+workspace = true
+
 [dev-dependencies]
 tracing-subscriber.workspace = true

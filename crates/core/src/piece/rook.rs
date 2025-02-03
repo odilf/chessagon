@@ -11,12 +11,21 @@ pub const fn strides() -> [Vec2<i8>; 6] {
     ]
 }
 
-pub const fn is_stride(stride: Vec2<i8>) -> bool {
+pub const fn valid_stride(stride: Vec2<i8>) -> bool {
     (stride.x() == 0 && stride.y().abs() == 1)
         || (stride.x().abs() == 1 && stride.y() == 0)
         || (stride.x().abs() == 1 && stride.x() == stride.y())
 }
 
+pub const fn valid_delta(delta: Vec2<i8>) -> bool {
+    delta.x() == 0 || delta.y() == 0 || delta.x() == delta.y()
+}
+
+/// Gets a move from `origin` to `destination` if the movement is rook-like.
+///
+/// See the [module-level docs](self) for more info about how a rook moves.
+///
+/// See [`Piece::get_move`](super::Piece::get_move) for more details about pre and postconditions.
 pub fn get_move(
     origin: Vec2,
     destination: Vec2,
@@ -27,7 +36,7 @@ pub fn get_move(
     let delta = destination - origin;
     let (stride, distance) = movement::get_stride(delta);
 
-    if !is_stride(stride) {
+    if !valid_stride(stride) {
         return Err(MoveError::InvalidDirection { stride });
     }
 

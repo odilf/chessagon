@@ -17,23 +17,76 @@ use crate::{
     mov::{Move, MoveMeta},
 };
 
+/// A piece in chessagon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString, Hash)]
 pub enum Piece {
+    /// A [`pawn`]
     Pawn,
+    /// A [`knight`]
     Knight,
+    /// A [`bishop`]
     Bishop,
+    /// A [`rook`]
     Rook,
+    /// A [`queen`]
     Queen,
+    /// A [`king`]
     King,
 }
 
 impl Piece {
-    /// TODO: Docs
+    /// Gets the move from `origin` to `destination`, if it is legal, assuming the given piece is at `origin`.
     ///
     /// # Panics
-    ///
     /// - If the piece at the `origin` position is not `self` with the given color.
+    ///
+    /// # Preconditions and delegation
+    ///
+    /// This method delegates most of its logic to piece-specific `get_move` methods:
+    /// - [`pawn::get_move`]
+    /// - [`knight::get_move`]
+    /// - [`bishop::get_move`]
+    /// - [`rook::get_move`]
+    /// - [`queen::get_move`]
+    /// - [`king::get_move`]
+    ///
+    /// These methods only check if the type of movement is correct. They assume:
+    /// - that the piece at `origin` is the given type
+    /// - that the movement is not null (i.e., not (0, 0)).
+    /// - that they don't leave the king in check.
     pub fn get_move(
+        &self,
+        origin: Vec2,
+        destination: Vec2,
+        board: &Board,
+        color: Color,
+    ) -> Result<(Move, MoveMeta), MoveError> {
+        let (mov, meta) = self.get_move_no_checks(origin, destination, board, color)?;
+
+        assert!(
+            board.get(mov.destination(), color).is_none(),
+            "pieces should not capture pieces of their own color",
+        );
+
+        assert_ne!(
+            board.get(mov.destination(), color.other()),
+            Some(Piece::King),
+            "Should not be able to capture the king. ({mov}) {origin} -> {destination}. {:?} {board}",
+            board.get_either(origin),
+        );
+
+        let mut test_board = board.clone();
+        test_board.apply_move_unchecked(mov, color);
+
+        if let Some(capturing_move) = test_board.in_check(color) {
+            return Err(MoveError::KingIsUnprotected { capturing_move });
+        }
+
+        Ok((mov, meta))
+    }
+
+    /// Gets the move from `origin` to `destination` is legal, except verifying whether it leaves the king in a check.
+    pub(crate) fn get_move_no_checks(
         &self,
         origin: Vec2,
         destination: Vec2,
@@ -43,7 +96,7 @@ impl Piece {
         assert_eq!(
             board.get(origin, color).as_ref(),
             Some(self),
-            "The board need to contain `self` in `origin`"
+            "The board needs to have a {self} in {origin}"
         );
 
         if origin == destination {
@@ -59,9 +112,7 @@ impl Piece {
             Self::King => king::get_move(origin, destination, board, color)?,
         };
 
-        // TODO: Implement checking for checks
-        let checks = None;
-        let meta = MoveMeta { color, checks };
+        let meta = MoveMeta { color };
 
         Ok((mov, meta))
     }
@@ -105,6 +156,9 @@ pub enum MoveError {
 
     #[error("Can't move king")]
     King(#[from] king::MoveError),
+
+    #[error("Move leaves king unprotected (could by captured by {capturing_move})")]
+    KingIsUnprotected { capturing_move: Move },
 }
 
 impl Piece {

@@ -18,7 +18,7 @@
 //! neighbors are at `1/√2` distances, which are very annoying. TODO: Is this necessarly true?
 
 use core::fmt;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::ops::{self, Deref, DerefMut};
 
 use std::hash::Hash;
@@ -26,8 +26,18 @@ use std::hash::Hash;
 use nalgebra::{Scalar, coordinates::XY};
 
 /// A vector in hexagonal coordinates, inside of the hexagonal chessboard.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Vec2<T = u8>(nalgebra::Vector2<T>);
+
+impl<T: Debug + Copy + Display> Debug for Vec2<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            write!(f, "Vec2(\n    {},\n    {}\n)", self.x(), self.y())
+        } else {
+            write!(f, "Vec2({},{})", self.x(), self.y())
+        }
+    }
+}
 
 impl<T: Hash + Scalar> Hash for Vec2<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -215,19 +225,8 @@ impl Vec2 {
 }
 
 impl Vec2<i8> {
+    #[allow(missing_docs)]
     pub const ZERO: Self = Vec2::new_unchecked(0, 0);
-}
-
-/// Type-alias for [`Vec2`]. A [`Vec2`] is always in hexagonal coordinates, but [`HVec2`] is useful if you want to more clearly differentiate between hexagonal and cartesian ([`CVec2`]) coordinates.
-pub type HVec2<T> = Vec2<T>;
-
-/// A vector in cartesian coordinates.
-pub struct CVec2<T = f32>(nalgebra::Vector2<T>);
-
-impl Vec2 {
-    pub fn into_cartesian(&self) -> CVec2<f32> {
-        todo!()
-    }
 }
 
 impl ops::Sub<Vec2> for Vec2 {

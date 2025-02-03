@@ -1,14 +1,14 @@
-use crate::{Engine, options::Options};
+use crate::Engine;
 use chessagon_core::{
     Color,
     board::Board,
-    game::{Game, GameResult, TimeControl},
+    game::{Game, TimeControl},
 };
 
 pub fn match_engines_from_position<White: Engine, Black: Engine>(
     board: Board,
     time_control: TimeControl,
-) -> GameResult {
+) -> Game {
     let mut game = Game::from_position(board, time_control);
 
     let mut white = White::new(Color::White, time_control);
@@ -16,10 +16,10 @@ pub fn match_engines_from_position<White: Engine, Black: Engine>(
 
     let mut players: [&mut dyn Engine; 2] = [&mut white, &mut black];
 
-    let result = loop {
+    loop {
         tracing::debug!("Board state: \n{}", game.board());
-        if let Some(result) = game.result() {
-            break result;
+        if game.result().is_some() {
+            break;
         };
 
         let action = players[game.turn()].get_action(&game);
@@ -28,10 +28,10 @@ pub fn match_engines_from_position<White: Engine, Black: Engine>(
         if let Err(apply_action_err) = game.apply_action(action, game.turn()) {
             tracing::debug!("Action was invalid: {apply_action_err}");
         }
-    };
+    }
 
-    result
+    game
 }
-pub fn match_engines<White: Engine, Black: Engine>(time_control: TimeControl) -> GameResult {
+pub fn match_engines<White: Engine, Black: Engine>(time_control: TimeControl) -> Game {
     match_engines_from_position::<White, Black>(Board::default(), time_control)
 }

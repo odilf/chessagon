@@ -1,7 +1,5 @@
 use crate::{Color, Side, board::Board, coordinate::Vec2, mov::Move, piece::movement};
 
-use super::Piece;
-
 /// Gets the stride of a pawn given the color and the optional direction of the capture.
 pub const fn stride(color: Color, capture_direction: Option<Side>) -> Vec2<i8> {
     match capture_direction {
@@ -19,11 +17,11 @@ pub const fn is_capture_stride(stride: Vec2<i8>, color: Color) -> bool {
         || (stride.x() == color.direction() && stride.y() == 0)
 }
 
-/// Gets a move.
+/// Gets a move from `origin` to `destination` if the movement is pawn-like.
 ///
-/// Assumes:
-/// - Piece at `origin` is a pawn.
-/// - `origin != destination`
+/// See the [module-level docs](self) for more info about how a pawn moves.
+///
+/// See [`Piece::get_move`](super::Piece::get_move) for more details about pre and postconditions.
 pub fn get_move(
     origin: Vec2,
     destination: Vec2,
@@ -71,108 +69,7 @@ pub fn get_move(
     })
 }
 
-// pub fn get_move_old(
-//     origin: Vec2,
-//     destination: Vec2,
-//     board: &Board,
-//     color: Color,
-// ) -> Result<Move, MoveError> {
-//     debug_assert_eq!(board.get(origin, color), Some(Piece::Pawn));
-
-//     let delta = destination - origin;
-//     match delta.x.abs_diff(delta.y) {
-//         // Straight, advancing
-//         0 => {
-//             let moved = delta.x; // Or delta.y, since delta.x - delta.y == 0
-//             if moved.signum() != color.direction() {
-//                 return Err(MoveError::MovingBackwards);
-//             }
-
-//             match moved.abs() {
-//                 1 => {
-//                     // Moving 1, only have to check if it's blocked where the piece is moving to is
-//                     // blocked
-//                     if let Some((piece, color)) = board.get_either(destination) {
-//                         return Err(MoveError::Blocked {
-//                             piece,
-//                             color,
-//                             position: destination,
-//                         });
-//                     }
-
-//                     // TODO: Check for promotions
-
-//                     Ok(Move::Regular {
-//                         origin,
-//                         destination,
-//                         captures: false,
-//                     })
-//                 }
-
-//                 2 => {
-//                     // Moving 2, have to check if it's in an initial position...
-//                     if !is_intial_tile(origin, color) {
-//                         return Err(MoveError::MovingTwoFromNonInitialTile { origin });
-//                     }
-
-//                     // ...and whether either of the two is blocked.
-//                     let middle = (origin + destination).map(|x| x / 2);
-//                     for position in [middle, destination] {
-//                         // TODO: Maybe factor this out
-//                         if let Some((piece, color)) = board.get_either(position) {
-//                             return Err(MoveError::Blocked {
-//                                 piece,
-//                                 color,
-//                                 position,
-//                             });
-//                         }
-//                     }
-
-//                     Ok(Move::Regular {
-//                         origin,
-//                         destination,
-//                         captures: false,
-//                     })
-//                 }
-
-//                 distance => {
-//                     return Err(MoveError::TooFarAway {
-//                         distance: distance as u8,
-//                     });
-//                 }
-//             }
-//         }
-
-//         // Diagonal capture
-//         1 => {
-//             // TODO: Prettier/more efficient way to do this?
-//             let moved = if delta.x == 0 { delta.y } else { delta.x };
-//             if moved.signum() != color.direction() {
-//                 return Err(MoveError::MovingBackwards);
-//             }
-
-//             if moved > 1 {
-//                 return Err(MoveError::CaptureTooFarAway { destination });
-//             }
-
-//             // TODO: Implement on passant
-//             let Some(_piece) = board.get(destination, color.other()) else {
-//                 return Err(MoveError::NoPieceToCapture {
-//                     position: destination,
-//                 });
-//             };
-
-//             Ok(Move::Regular {
-//                 origin,
-//                 destination,
-//                 captures: true,
-//             })
-//         }
-
-//         _ => return Err(MoveError::InvalidMovementDirection { delta }),
-//     }
-// }
-
+#[allow(missing_docs)]
 #[derive(Debug, thiserror::Error)]
 pub enum MoveError {
     #[error(

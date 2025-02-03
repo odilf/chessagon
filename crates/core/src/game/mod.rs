@@ -1,4 +1,3 @@
-mod action;
 mod time_control;
 mod view;
 
@@ -107,6 +106,19 @@ impl Game {
                 let now = Instant::now();
                 self.moves.push((mov, now));
                 self.board.apply_move(mov, color)?;
+
+                if self.board.possible_moves(color.other()).next().is_none() {
+                    if self.board.in_check(color.other()).is_some() {
+                        self.result = Some(GameResult::Win {
+                            winner: color,
+                            reason: WinReason::Checkmate,
+                        })
+                    } else {
+                        self.result = Some(GameResult::Draw {
+                            reason: DrawReason::Stalemate,
+                        })
+                    }
+                }
             }
             Action::Resign => {
                 self.result = Some(GameResult::Win {

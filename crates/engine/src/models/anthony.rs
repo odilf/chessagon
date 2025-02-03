@@ -16,34 +16,46 @@ pub struct Anthony {
 }
 
 impl Anthony {
-    pub const SEARCH_DEPTH: usize = 3;
+    pub const SEARCH_DEPTH: usize = 2;
 
-    pub fn evaluate(board: &Board, color: Color) -> i16 {
-        board.total_piece_value(color) as i16 - board.total_piece_value(color.other()) as i16
-    }
-
-    pub fn search_move(&self, board: &Board, color: Color, depth: usize) -> (Option<Move>, i16) {
+    pub fn search_move(
+        &mut self,
+        board: &Board,
+        color: Color,
+        depth: usize,
+    ) -> (Option<Move>, f64) {
         if depth == 0 {
-            return (None, Self::evaluate(board, color));
+            return (None, self.eval_for(board, color));
         }
 
         let mut best_move = None;
-        let mut best_move_score = i16::MIN;
-        for mov in board.enumerate_moves(color) {
-            if self.played_moves.contains(&mov) {
-                continue;
-            }
-
+        let mut best_move_score = f64::NEG_INFINITY;
+        for mov in board.possible_moves(color) {
             let mut board = board.clone();
             board.apply_move_unchecked(mov, color);
 
             let (_best_response, opponent_score) =
                 self.search_move(&board, color.other(), depth - 1);
 
-            let score = -opponent_score;
+            let mut score = -opponent_score;
+            if self.played_moves.contains(&mov) {
+                score -= 50.0;
+            }
+
             if score > best_move_score {
                 best_move_score = score;
                 best_move = Some(mov);
+            }
+        }
+
+        if best_move.is_none() {
+            for mov in board.possible_moves(color) {
+                tracing::debug!("There is {mov}");
+                let mut test_board = board.clone();
+                test_board.apply_move_unchecked(mov, color);
+                let eval = self.eval_for(&test_board, color);
+
+                tracing::debug!("Evaluated at {eval}");
             }
         }
 
@@ -60,11 +72,12 @@ impl Engine for Anthony {
     }
 
     fn get_action(&mut self, game: &Game) -> Action {
-        tracing::debug!("Finding action");
-
         let (Some(mov), _score) = self.search_move(game.board(), self.color, Self::SEARCH_DEPTH)
         else {
-            panic!("Didn't find a single move?");
+            panic!(
+                "Didn't find a single move? board state is \n{}",
+                game.board()
+            );
         };
 
         self.played_moves.insert(mov);
@@ -74,5 +87,12 @@ impl Engine for Anthony {
 
     fn accept_draw_offer(&mut self, _: &Game) -> bool {
         false
+    }
+
+    fn eval(&mut self, board: &Board) -> f64 {
+        (board.total_piece_value(Color::White) as i16
+            - board.total_piece_value(Color::Black) as i16
+            - board.in_check(Color::White).is_some() as i16 * 100
+            + board.in_check(Color::Black).is_some() as i16 * 200) as f64
     }
 }

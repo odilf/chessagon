@@ -6,10 +6,10 @@
 //!
 //! Just like in square chess, a bishop always stays on same-color tiles. In chessagon, we refer to the "color" of the tile as
 //! the index, which you can compute numerically by adding the coordinates of the tile modulo 3.
-
-use std::ops::DivAssign;
-
-use crate::{Color, board::Board, coordinate::Vec2, mov::Move, piece::Piece};
+//!
+//! The possible strides of the bishop are enumerated in [`strides`]. Numerically, every combination where the coordinates'
+//! absolute values are either 1 or 2 and their sum modulo 3 is zero, is a valid hexagonal coordinate.
+use crate::{Color, board::Board, coordinate::Vec2, mov::Move, piece::movement};
 
 pub const fn strides() -> [Vec2<i8>; 6] {
     [
@@ -22,13 +22,18 @@ pub const fn strides() -> [Vec2<i8>; 6] {
     ]
 }
 
-pub const fn is_stride(stride: Vec2<i8>) -> bool {
-    let valid_coordinates = (stride.x().abs() == 1 && stride.y().abs() == 2)
-        || (stride.x().abs() == 2 && stride.y().abs() == 1);
+pub const fn valid_stride(stride: Vec2<i8>) -> bool {
+    let valid_coordinates = (stride.x().abs() == 1 || stride.x().abs() == 2)
+        && (stride.y().abs() == 1 && stride.y().abs() == 2);
 
     valid_coordinates && ((stride.x() + stride.y()) % 3 == 0)
 }
 
+/// Gets a move from `origin` to `destination` if the movement is bishop-like.
+///
+/// See the [module-level docs](self) for more info about how a bishop moves.
+///
+/// See [`Piece::get_move`](super::Piece::get_move) for more details about pre and postconditions.
 pub fn get_move(
     origin: Vec2,
     destination: Vec2,
@@ -36,55 +41,15 @@ pub fn get_move(
     color: Color,
 ) -> Result<Move, MoveError> {
     debug_assert_ne!(origin, destination);
-    if origin.index() != destination.index() {
-        return Err(MoveError::ChangeOfIndex {
-            origin_index: origin.index(),
-            destination_index: destination.index(),
-        });
-    }
-
     let delta = destination - origin;
-    // if delta.x == 0 || delta.y == 0 {
-    return Err(MoveError::InvalidDirection { delta });
-    // }
+    let (stride, distance) = movement::get_stride(delta);
 
-    let (stride, distance) = if delta.x > delta.y {
-        (
-            Vec2::new_unchecked(2 * delta.x.signum(), delta.y.signum()),
-            delta.x.abs(),
-        )
-    } else {
-        (
-            Vec2::new_unchecked(delta.x.signum(), 2 * delta.y.signum()),
-            delta.y.abs(),
-        )
-    };
-
-    dbg!(stride);
-    // Check if it's on closest valid stride
-    let is_on_stride = (delta.x % stride.x == 0)
-        && (delta.y % stride.y == 0)
-        && (delta.x / stride.x == delta.y / stride.y);
-
-    if !is_on_stride {
-        return Err(MoveError::InvalidDirection { delta });
+    if !valid_stride(stride) {
+        return Err(MoveError::InvalidDirection { stride });
     }
 
-    // Check if it's blocked
-    dbg!(delta);
-    dbg!(distance);
-    dbg!(origin, stride);
-    for i in 1..distance {
-        let position = origin + stride * i;
-        if let Some((piece, blocker_color)) = board.get_either(position) {
-            return Err(MoveError::Blocked {
-                position,
-                piece,
-                color: blocker_color,
-                capturable: blocker_color == color,
-            });
-        }
-    }
+    movement::check_blockers(origin, stride, distance, board)?;
+    movement::check_color_blocker(destination, board, color)?;
 
     // Check if it's capturing
     let captures = board.get(destination, color.other()).is_some();
@@ -106,18 +71,13 @@ pub enum MoveError {
         destination_index: u8,
     },
 
-    #[error("Blocked by {color} {piece} on {position}{}", if *capturable { " (you can capture it)" } else { "" })]
-    Blocked {
-        position: Vec2,
-        piece: Piece,
-        color: Color,
-        capturable: bool,
-    },
+    #[error("Blocked.")]
+    Blocked(#[from] movement::BlockerError),
 
     #[error(
-        "Bishops can only move in the diagonals of hexagon (tried to move in direction {delta})"
+        "Bishops can only move in the diagonals of hexagon (tried to move with stride {stride})"
     )]
-    InvalidDirection { delta: Vec2<i8> },
+    InvalidDirection { stride: Vec2<i8> },
 }
 
 pub fn initial_configuration() -> impl Iterator<Item = (Vec2, Color)> {

@@ -1,14 +1,6 @@
-use crate::{
-    Color, Side,
-    coordinate::Vec2,
-    piece::{Piece, pawn},
-};
+use std::fmt;
 
-#[derive(Debug, Copy, Clone)]
-pub enum CheckStatus {
-    Check,
-    Checkmate,
-}
+use crate::{Color, Side, coordinate::Vec2, piece::Piece};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Move {
@@ -47,17 +39,24 @@ pub enum Move {
     },
 }
 
+impl fmt::Display for Move {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} -> {}", self.origin(), self.destination())
+    }
+}
+
 impl Move {
-    pub fn origin(self, color: Color) -> Vec2 {
+    pub fn origin(self) -> Vec2 {
         match self {
             Move::Regular { origin, .. } => origin,
-            Move::EnPassant { file, .. } => pawn::initial_position_of_file(file, color)
-                .expect("Move::EnPassant::file should always be between 1 and 9"),
+            Move::EnPassant { .. } => todo!(),
+            // Move::EnPassant { file, .. } => pawn::initial_position_of_file(file, color)
+            //     .expect("Move::EnPassant::file should always be between 1 and 9"),
             Move::Promotion { .. } => todo!(),
         }
     }
 
-    pub fn destination(self, color: Color) -> Vec2 {
+    pub fn destination(self) -> Vec2 {
         match self {
             Move::Regular { destination, .. } => destination,
             Move::EnPassant { .. } => todo!(),
@@ -69,5 +68,4 @@ impl Move {
 #[derive(Debug, Copy, Clone)]
 pub struct MoveMeta {
     pub color: Color,
-    pub checks: Option<CheckStatus>,
 }

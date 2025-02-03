@@ -11,5 +11,8 @@ tracing.workspace = true
 hext-boards.workspace = true 
 gcd = "2.3.0"
 
+[lints]
+workspace = true
+
 [dev-dependencies]
 pretty_assertions.workspace = true

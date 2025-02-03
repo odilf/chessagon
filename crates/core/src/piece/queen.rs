@@ -6,6 +6,11 @@ use crate::{
     piece::{Piece, bishop, rook},
 };
 
+/// Gets a move from `origin` to `destination` if the movement is queen-like.
+///
+/// See the [module-level docs](self) for more info about how a queen moves.
+///
+/// See [`Piece::get_move`](super::Piece::get_move) for more details about pre and postconditions.
 pub fn get_move(
     origin: Vec2,
     destination: Vec2,

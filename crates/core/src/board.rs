@@ -1,5 +1,5 @@
 use crate::{
-    Color, Side,
+    Color,
     coordinate::Vec2,
     mov::{Move, MoveMeta},
     piece::{MoveError, Piece},
@@ -11,13 +11,10 @@ use crate::{
 ///
 /// # Invariants
 /// - The board is always in a valid state. This implies:
-///     - If [`Self::has_moved_rook`] is false, the rook must be at it's original position.
+///     - There is exactly one king of each color.
 #[derive(Debug, Clone)]
 pub struct Board {
     pieces: [[Option<Piece>; 91]; 2],
-
-    /// Wether or not the king of each side can castle or not.
-    has_moved_rook: [[bool; 2]; 2],
 
     /// The last move, if it was a pawn move. Needed for en-passant.
     last_move: Option<Move>,
@@ -27,7 +24,6 @@ impl Default for Board {
     fn default() -> Self {
         let mut output = Board {
             pieces: [[None; 91]; 2],
-            has_moved_rook: [[false; 2]; 2],
             last_move: None,
         };
 
@@ -43,13 +39,17 @@ impl Board {
     /// The maximum absolute value difference that a set of coordinates can have.
     pub const SIZE: u8 = 5;
 
+    #[allow(missing_docs)]
     pub const NUMBER_OF_TILES: u8 = 91;
+
+    #[allow(missing_docs)]
     pub const NUMBER_OF_FILES: u8 = 11;
 
+    /// Creates a new board with the minimal number of pieces (i.e, two kings).
+    // TODO: This should maybe return an error because some positions could be impossible to reach normally.
     pub fn new_minimal(white_king_position: Vec2, black_king_position: Vec2) -> Self {
         let mut output = Self {
             pieces: [[None; Self::NUMBER_OF_TILES as usize]; 2],
-            has_moved_rook: [[false; 2]; 2],
             last_move: None,
         };
 
@@ -60,6 +60,8 @@ impl Board {
     }
 
     /// Returns the index where the position is stored in the array.
+    ///
+    /// See also [`Self::index_to_vec`]
     fn index(position: Vec2) -> usize {
         let rank = position.rank();
         let tiles_before_rank = (0..rank).map(Vec2::rank_width).sum::<u8>();
@@ -76,8 +78,24 @@ impl Board {
     }
 
     /// Returns the position that would result into the given index.
+    ///
+    /// See also [`Self::index`]
     fn index_to_vec(index: usize) -> Vec2 {
-        todo!("index to vec. This might not be necessary?")
+        // Find the rank, using the fact that `tiles_before_rank` should be less than `index`
+        let mut rank = 0;
+        let mut tiles_before_rank = 0;
+        while tiles_before_rank + Vec2::rank_width(rank) <= index as u8 {
+            tiles_before_rank += Vec2::rank_width(rank);
+            rank += 1;
+        }
+
+        // Find the index of the position in the rank, add the min valid coordinate so that index 0 goes to the min
+        let rank_position = index as u8 - tiles_before_rank;
+        let y = rank_position + Vec2::min_valid_rank_coordinate(rank);
+
+        // `rank == x + y`, so:
+        let x = rank - y;
+        Vec2::new_unchecked(x, y)
     }
 
     /// Gets the piece at the specified position, if it's white.
@@ -116,45 +134,29 @@ impl Board {
             .or(self.get_black(position).map(|piece| (piece, Color::Black)))
     }
 
-    /// Whether `color` still has the right to castle.
+    /// Enumerates all pieces, without their positions.
     ///
-    /// Note: Moving the rook back to it's initial position does not make the rook count as not
-    /// having moved. If it moves at any point, it is consider to have been moved.
-    ///
-    /// See [`Self::reset_moved_rook`] to reset the moved rook status.
-    #[inline]
-    pub fn has_moved_rook(&self, color: Color, side: Side) -> bool {
-        self.has_moved_rook[color][side]
-    }
-
-    /// Resets the rook position and the status of having been moved.
-    ///
-    /// In other words, it makes [`Self::has_moved_rook`] return false.
-    ///
-    /// Returns `true` if the value was modified, `false` otherwise
-    pub fn reset_moved_rook(&mut self, color: Color, side: Side) -> bool {
-        let modified = self.has_moved_rook[color][side] == true;
-        self.has_moved_rook[color][side] = false;
-
-        todo!("Reset rook position");
-
-        modified
-    }
-
+    /// See also [`Self::piece_positions`].
     pub fn pieces(&self, color: Color) -> impl Iterator<Item = Piece> {
-        self.pieces[color].iter().copied().filter_map(|piece| piece)
+        self.pieces[color].iter().copied().flatten()
     }
 
+    /// Enumerates all `(position, piece)` pairs.
     pub fn piece_positions(&self, color: Color) -> impl Iterator<Item = (Vec2, Piece)> {
         Vec2::iter().zip(self.pieces(color))
     }
 
+    /// Verifies whether the given move is legal or not.
     pub fn check_move(&self, mov: Move, color: Color) -> Result<(), MoveError> {
         // TODO: Make this use direct logic instead of reusing `get_move`
-        self.get_move_from_color(mov.origin(color), mov.destination(color), color)?;
+        self.get_move(mov.origin(), mov.destination(), color)?;
         Ok(())
     }
 
+    /// Applies the given move.
+    ///
+    /// See also [`Self::apply_move_unchecked`] to skip verifying if the move is legal if it is known to
+    /// be from construction (i.e., from [`Self::possible_moves`]).
     pub fn apply_move(&mut self, mov: Move, color: Color) -> Result<Option<Piece>, MoveError> {
         self.check_move(mov, color)?;
         Ok(self.apply_move_unchecked(mov, color))
@@ -186,61 +188,59 @@ impl Board {
                 capture
             }
 
-            Move::EnPassant { file, direction } => todo!(),
-            Move::Promotion {
-                file,
-                captures,
-                promoting_to,
-            } => todo!(),
+            Move::EnPassant { .. } => todo!(),
+            Move::Promotion { .. } => todo!(),
         };
 
         self.last_move = Some(mov);
         capture
     }
 
-    pub fn get_move(&self, origin: Vec2, destination: Vec2) -> Result<(Move, MoveMeta), MoveError> {
-        let Some((piece, color)) = self.get_either(origin) else {
-            return Err(MoveError::PieceNotPresent { position: origin });
-        };
-
-        piece.get_move(origin, destination, self, color)
-    }
-
-    pub fn get_move_from_color(
+    /// Gets the move from `origin` to `destination`, if the it is legal.
+    ///
+    /// Most of it is delegated to [`Piece::get_move`].
+    pub fn get_move(
         &self,
         origin: Vec2,
         destination: Vec2,
         color: Color,
     ) -> Result<(Move, MoveMeta), MoveError> {
-        let Some((piece, color_of_target)) = self.get_either(origin) else {
+        let Some((piece, board_piece_color)) = self.get_either(origin) else {
             return Err(MoveError::PieceNotPresent { position: origin });
         };
 
-        if color != color_of_target {
+        if board_piece_color != color {
             return Err(MoveError::NotYourPiece {
                 position: origin,
-                color: color_of_target,
+                color: board_piece_color,
             });
         }
 
-        piece.get_move(origin, destination, self, color_of_target)
+        piece.get_move(origin, destination, self, color)
     }
 
-    pub fn try_move(&mut self, origin: Vec2, destination: Vec2) -> Result<(), MoveError> {
-        let (mov, meta) = self.get_move(origin, destination)?;
+    /// Tries to apply a move from `origin` to `destination`.
+    pub fn try_move(
+        &mut self,
+        origin: Vec2,
+        destination: Vec2,
+        color: Color,
+    ) -> Result<(), MoveError> {
+        let (mov, meta) = self.get_move(origin, destination, color)?;
         self.apply_move_unchecked(mov, meta.color);
         Ok(())
     }
 
-    pub fn try_undo_move(&mut self, mov: Move) -> Result<(), ()> {
-        todo!()
-    }
+    // pub fn undo_move_unchecked(&mut self, _mov: Move) -> Result<(), ()> {
+    //     todo!()
+    // }
 
-    pub fn enumerate_moves(&self, color: Color) -> impl Iterator<Item = Move> {
+    /// An iterator over all legal moves in the current for position that the player of the given color can do.
+    pub fn possible_moves(&self, color: Color) -> impl Iterator<Item = Move> {
         Vec2::iter()
             .map(move |origin| {
                 Vec2::iter().filter_map(move |destination| {
-                    self.get_move_from_color(origin, destination, color)
+                    self.get_move(origin, destination, color)
                         .ok()
                         .map(|(mov, _)| mov)
                 })
@@ -248,27 +248,45 @@ impl Board {
             .flatten()
     }
 
+    /// The sum of the [`Piece::value`]s of the pieces of the given color.
     pub fn total_piece_value(&self, color: Color) -> u16 {
         self.pieces(color)
             .map(|piece| piece.value().unwrap_or(0) as u16)
             .sum()
+    }
+
+    /// Returns the position of the king of the given color.
+    pub fn find_king(&self, color: Color) -> Vec2 {
+        for (index, &piece) in self.pieces[color].iter().enumerate() {
+            if piece == Some(Piece::King) {
+                return Self::index_to_vec(index);
+            }
+        }
+
+        unreachable!("Boards should always have at least one king of each color");
+    }
+
+    /// Verifies whether the king of the given color could be attacked next move.
+    ///
+    /// If it is, returns a move that would capture the king.
+    pub fn in_check(&self, color: Color) -> Option<Move> {
+        let king_position = self.find_king(color);
+        Vec2::iter()
+            .filter_map(|origin| {
+                self.get(origin, color.other()).and_then(|piece| {
+                    piece
+                        .get_move_no_checks(origin, king_position, self, color.other())
+                        .ok()
+                })
+            })
+            .map(|(mov, _)| mov)
+            .next()
     }
 }
 
 impl std::fmt::Display for Board {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         use hext_boards::HexagonalBoard;
-
-        // TODO: `hext_boards` should provide traits to implement rendering directly. I.e., [`HexagonalBoard`] should be a trait
-        let hex_board: HexagonalBoard<_> = self
-            .piece_positions(Color::White)
-            .map(|(p, piece)| (p, piece, Color::White))
-            .chain(
-                self.piece_positions(Color::Black)
-                    .map(|(p, piece)| (p, piece, Color::Black)),
-            )
-            .map(|(p, piece, color)| ([p.x as i32, p.y as i32], (piece, color)))
-            .collect();
 
         let hex_board: HexagonalBoard<_> = Vec2::iter()
             .map(|position| {
@@ -289,7 +307,6 @@ impl std::fmt::Display for Board {
 #[cfg(test)]
 mod tests {
     use crate::{board::Board, coordinate::Vec2, diagrams};
-    use pretty_assertions::assert_eq;
     use std::collections::HashSet;
 
     #[test]
@@ -334,7 +351,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "might not implement this"]
     fn vec_to_index_to_vec_is_identity() {
         for position in Vec2::iter() {
             let index = Board::index(position);
@@ -345,7 +361,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "might not implement this"]
     fn index_to_vec_to_index_is_identity() {
         for index in 0..Board::NUMBER_OF_TILES as usize {
             let vec = Board::index_to_vec(index);
