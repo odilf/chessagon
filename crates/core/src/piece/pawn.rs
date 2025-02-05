@@ -1,18 +1,18 @@
-use crate::{Color, Side, board::Board, coordinate::Vec2, mov::Move, piece::movement};
+use crate::{Color, IVec2, board::Board, coordinate::Vec2, mov::Move, piece::movement};
 
-/// Gets the stride of a pawn given the color and the optional direction of the capture.
-pub const fn stride(color: Color, capture_direction: Option<Side>) -> Vec2<i8> {
-    match capture_direction {
-        None => Vec2::new_unchecked(color.direction(), color.direction()),
-        Some(side) => side.step_towards(color.direction()),
-    }
-}
+// /// Gets the stride of a pawn given the color and the optional direction of the capture.
+// pub const fn stride(color: Color, capture_direction: Option<Side>) -> IVec2 {
+//     match capture_direction {
+//         None => IVec2::new_unchecked(color.direction(), color.direction()),
+//         Some(side) => side.step_towards(color.direction()),
+//     }
+// }
 
-pub const fn is_straight_stride(stride: Vec2<i8>, color: Color) -> bool {
+pub const fn is_straight_stride(stride: IVec2, color: Color) -> bool {
     stride.x() == stride.y() && stride.y() == color.direction()
 }
 
-pub const fn is_capture_stride(stride: Vec2<i8>, color: Color) -> bool {
+pub const fn is_capture_stride(stride: IVec2, color: Color) -> bool {
     (stride.x() == 0 && stride.y() == color.direction())
         || (stride.x() == color.direction() && stride.y() == 0)
 }
@@ -77,7 +77,7 @@ pub enum MoveError {
     )]
     TooFarAway { distance: u8, max_distance: u8 },
 
-    #[error("Blocked")]
+    #[error("{0}")]
     Blocked(#[from] movement::BlockerError),
 
     #[error("Capture target is {distance} tiles away, but you can only capture neighbors")]
@@ -89,7 +89,7 @@ pub enum MoveError {
     #[error(
         "Pawns can only move forward or capture diagonally (it's moving in direction {delta})."
     )]
-    InvalidMovementDirection { delta: Vec2<i8> },
+    InvalidMovementDirection { delta: IVec2 },
 }
 
 pub const fn initial_white_tiles() -> [Vec2; 9] {
@@ -127,7 +127,7 @@ pub const fn is_initial_black_tile(position: Vec2) -> bool {
 
 pub fn is_intial_tile(position: Vec2, color: Color) -> bool {
     let m = max_coordinate_of_initial_position(color);
-    (position.x() == m && color.compare_towards(position.y, m).is_ge())
+    (position.x() == m && color.compare_towards(position.y(), m).is_ge())
         || (color.compare_towards(position.x(), m).is_ge() && position.y() == m)
 }
 
@@ -202,17 +202,17 @@ mod tests {
         }
     }
 
-    #[test]
-    fn fn_stride_returns_correct_result_for_each_possible_value() {
-        for (color, captures, [x, y]) in [
-            (Color::White, None, [1, 1]),
-            (Color::White, Some(Side::Queen), [1, 0]),
-            (Color::White, Some(Side::King), [0, 1]),
-            (Color::Black, None, [-1, -1]),
-            (Color::Black, Some(Side::Queen), [0, -1]),
-            (Color::Black, Some(Side::King), [-1, 0]),
-        ] {
-            assert_eq!(stride(color, captures), Vec2::new_unchecked(x, y));
-        }
-    }
+    // #[test]
+    // fn fn_stride_returns_correct_result_for_each_possible_value() {
+    //     for (color, captures, [x, y]) in [
+    //         (Color::White, None, [1, 1]),
+    //         (Color::White, Some(Side::Queen), [1, 0]),
+    //         (Color::White, Some(Side::King), [0, 1]),
+    //         (Color::Black, None, [-1, -1]),
+    //         (Color::Black, Some(Side::Queen), [0, -1]),
+    //         (Color::Black, Some(Side::King), [-1, 0]),
+    //     ] {
+    //         assert_eq!(stride(color, captures), IVec2::new_unchecked(x, y));
+    //     }
+    // }
 }

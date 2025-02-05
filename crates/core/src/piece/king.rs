@@ -1,4 +1,15 @@
-use crate::{Color, board::Board, coordinate::Vec2, mov::Move, piece::Piece};
+//! Kings of chessagon.
+//!
+//! # Movement
+//!
+//! Kings can move one stride which is either [rook](super::rook)-like or [bishop](super::bishop)-like.
+//!
+//! This is a generalization of square chess, where the one rook stride corresponds to adjecent squares and the one
+//! bishop stride corresponds to diagonal squares.
+//!
+// TODO: Add docs for numerical shortcut
+
+use crate::{Color, board::Board, coordinate::Vec2, mov::Move, piece::movement};
 
 /// Gets a move from `origin` to `destination` if the movement is king-like.
 ///
@@ -12,20 +23,14 @@ pub fn get_move(
     color: Color,
 ) -> Result<Move, MoveError> {
     debug_assert_ne!(origin, destination);
-    debug_assert_eq!(board.get(origin, color), Some(Piece::King));
 
     let delta = destination - origin;
-    if delta.x.abs() + delta.y.abs() > 2 {
-        return Err(MoveError::TooFarAway);
+    let distance = delta.x().abs() + delta.y().abs();
+    if distance > 2 {
+        return Err(MoveError::TooFarAway { distance });
     }
 
-    if let Some(piece) = board.get(destination, color) {
-        return Err(MoveError::Blocked {
-            position: destination,
-            piece,
-            color: color.other(),
-        });
-    }
+    movement::check_any_blocker(destination, board)?;
     let captures = board.get(destination, color.other()).is_some();
 
     Ok(Move::Regular {
@@ -35,19 +40,17 @@ pub fn get_move(
     })
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, thiserror::Error)]
 pub enum MoveError {
-    #[error("TODO")]
-    TooFarAway,
+    #[error("The move destination is too far away ({distance} tiles away)")]
+    TooFarAway { distance: i8 },
 
-    #[error("Blocked by {color} {piece} on {position}")]
-    Blocked {
-        position: Vec2,
-        piece: Piece,
-        color: Color,
-    },
+    #[error("{0}")]
+    Blocked(#[from] movement::BlockerError),
 }
 
+/// The tiles where the kings are placed at the start of the game.
 pub fn initial_configuration() -> impl Iterator<Item = (Vec2, Color)> {
     [
         (Vec2::new_unchecked(0, 1), Color::White),

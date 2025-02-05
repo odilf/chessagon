@@ -13,10 +13,10 @@ use crate::{
 /// - The board is always in a valid state. This implies:
 ///     - There is exactly one king of each color.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Board {
+    #[cfg_attr(feature = "serde", serde(with = "serde_piece_nested_array"))]
     pieces: [[Option<Piece>; 91]; 2],
-
-    /// The last move, if it was a pawn move. Needed for en-passant.
     last_move: Option<Move>,
 }
 
@@ -42,8 +42,11 @@ impl Board {
     #[allow(missing_docs)]
     pub const NUMBER_OF_TILES: u8 = 91;
 
-    #[allow(missing_docs)]
+    /// The total number of [files](`Vec2::file`).
     pub const NUMBER_OF_FILES: u8 = 11;
+
+    /// The total number of [ranks](`Vec2::rank`).
+    pub const NUMBER_OF_RANKS: u8 = 11;
 
     /// Creates a new board with the minimal number of pieces (i.e, two kings).
     // TODO: This should maybe return an error because some positions could be impossible to reach normally.
@@ -62,7 +65,7 @@ impl Board {
     /// Returns the index where the position is stored in the array.
     ///
     /// See also [`Self::index_to_vec`]
-    fn index(position: Vec2) -> usize {
+    pub fn index(position: Vec2) -> usize {
         let rank = position.rank();
         let tiles_before_rank = (0..rank).map(Vec2::rank_width).sum::<u8>();
 
@@ -72,7 +75,7 @@ impl Board {
         // So can we just take `p.y`? No, because 0 is not always a valid option for y. So we need
         // to find the first valid y value.
         let first_valid_y = Vec2::min_valid_rank_coordinate(rank);
-        let index_on_rank = position.y - first_valid_y;
+        let index_on_rank = position.y() - first_valid_y;
 
         (tiles_before_rank + index_on_rank) as usize
     }
@@ -80,7 +83,7 @@ impl Board {
     /// Returns the position that would result into the given index.
     ///
     /// See also [`Self::index`]
-    fn index_to_vec(index: usize) -> Vec2 {
+    pub fn index_to_vec(index: usize) -> Vec2 {
         // Find the rank, using the fact that `tiles_before_rank` should be less than `index`
         let mut rank = 0;
         let mut tiles_before_rank = 0;
@@ -134,16 +137,34 @@ impl Board {
             .or(self.get_black(position).map(|piece| (piece, Color::Black)))
     }
 
-    /// Enumerates all pieces, without their positions.
+    /// Enumerates all pieces of the given color, without their positions.
     ///
     /// See also [`Self::piece_positions`].
     pub fn pieces(&self, color: Color) -> impl Iterator<Item = Piece> {
         self.pieces[color].iter().copied().flatten()
     }
 
-    /// Enumerates all `(position, piece)` pairs.
+    /// Enumerates all `(position, piece)` pairs of the given color.
+    ///
+    /// See also [`Self::all_piece_positions`] and [`Self::pieces`].
     pub fn piece_positions(&self, color: Color) -> impl Iterator<Item = (Vec2, Piece)> {
-        Vec2::iter().zip(self.pieces(color))
+        // TODO: This could be `get_unchecked`
+        self.pieces[color]
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &piece)| Some((Board::index_to_vec(i), piece?)))
+    }
+
+    /// Enumerates the positions of all pieces as a `(position, piece, color)` triplet.
+    ///
+    /// See also [`Self::piece_positions`].
+    pub fn all_piece_positions(&self) -> impl Iterator<Item = (Vec2, Piece, Color)> {
+        self.piece_positions(Color::White)
+            .map(|(pos, piece)| (pos, piece, Color::White))
+            .chain(
+                self.piece_positions(Color::Black)
+                    .map(|(pos, piece)| (pos, piece, Color::Black)),
+            )
     }
 
     /// Verifies whether the given move is legal or not.
@@ -290,7 +311,7 @@ impl std::fmt::Display for Board {
 
         let hex_board: HexagonalBoard<_> = Vec2::iter()
             .map(|position| {
-                let vec = [position.x as i32, position.y as i32];
+                let vec = [position.x() as i32, position.y() as i32];
                 let val = self.get_either(position);
 
                 (vec, val)
@@ -374,5 +395,52 @@ mod tests {
     fn intial_board_matches_diagram() {
         let rendered = Board::default().to_string();
         assert_eq!(rendered.trim(), diagrams::INITIAL_BOARD.trim());
+    }
+}
+
+// Huge workaround for lack of const generics in serde...
+// Can't easily even use `serde_arrays` or `serde_with` since the array is nested and that turns
+// out to be a huge pain in the ass.
+#[cfg(feature = "serde")]
+mod serde_piece_nested_array {
+    use super::Piece;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Serialize, Deserialize)]
+    struct SerializableArray<T, const N: usize>
+    where
+        T: Serialize,
+        T: for<'d> Deserialize<'d>,
+    {
+        #[serde(with = "serde_arrays")]
+        inner: [T; N],
+    }
+
+    type Arr = SerializableArray<SerializableArray<Option<Piece>, 91>, 2>;
+
+    pub fn serialize<S>(data: &[[Option<Piece>; 91]; 2], ser: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let data: Arr = SerializableArray {
+            inner: [
+                SerializableArray { inner: data[0] },
+                SerializableArray { inner: data[1] },
+            ],
+        };
+
+        data.serialize(ser)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<[[Option<Piece>; 91]; 2], D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let data = Arr::deserialize(deserializer)?;
+
+        let white = data.inner[0].inner;
+        let black = data.inner[1].inner;
+
+        Ok([white, black])
     }
 }

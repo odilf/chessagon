@@ -9,20 +9,23 @@
 //!
 //! The possible strides of the bishop are enumerated in [`strides`]. Numerically, every combination where the coordinates'
 //! absolute values are either 1 or 2 and their sum modulo 3 is zero, is a valid hexagonal coordinate.
-use crate::{Color, board::Board, coordinate::Vec2, mov::Move, piece::movement};
 
-pub const fn strides() -> [Vec2<i8>; 6] {
+use crate::{Color, IVec2, board::Board, coordinate::Vec2, ivec2, mov::Move, piece::movement};
+
+/// Possible strides of a bishop.
+pub const fn strides() -> [IVec2; 6] {
     [
-        Vec2::new_unchecked(1, -1),
-        Vec2::new_unchecked(2, 1),
-        Vec2::new_unchecked(1, 2),
-        Vec2::new_unchecked(-1, 1),
-        Vec2::new_unchecked(-2, -1),
-        Vec2::new_unchecked(-1, -2),
+        ivec2!(1, -1),
+        ivec2!(2, 1),
+        ivec2!(1, 2),
+        ivec2!(-1, 1),
+        ivec2!(-2, -1),
+        ivec2!(-1, -2),
     ]
 }
 
-pub const fn valid_stride(stride: Vec2<i8>) -> bool {
+/// Whether the given stride is valid for a bishop.
+pub const fn valid_stride(stride: IVec2) -> bool {
     let valid_coordinates = (stride.x().abs() == 1 || stride.x().abs() == 2)
         && (stride.y().abs() == 1 && stride.y().abs() == 2);
 
@@ -61,6 +64,7 @@ pub fn get_move(
     })
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, thiserror::Error)]
 pub enum MoveError {
     #[error(
@@ -71,15 +75,16 @@ pub enum MoveError {
         destination_index: u8,
     },
 
-    #[error("Blocked.")]
+    #[error("{0}")]
     Blocked(#[from] movement::BlockerError),
 
     #[error(
         "Bishops can only move in the diagonals of hexagon (tried to move with stride {stride})"
     )]
-    InvalidDirection { stride: Vec2<i8> },
+    InvalidDirection { stride: IVec2 },
 }
 
+/// The tiles where the bishops are placed at the start of the game.
 pub fn initial_configuration() -> impl Iterator<Item = (Vec2, Color)> {
     [
         (Vec2::new_unchecked(0, 0), Color::White),

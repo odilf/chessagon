@@ -1,15 +1,19 @@
 [workspace]
-members = ["crates/core", "crates/engine"]
+members = ["crates/core", "crates/engine", "crates/ui"]
 
 [workspace.dependencies]
-nalgebra = "0.33.2"
 thiserror = "2.0.8"
 strum = { version = "0.26.3", features = ["derive"] }
 hext-boards = "0.5.0"
 pretty_assertions = "1.4.1"
-jiff = "0.1.23"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
+bytemuck = "1.21.0"
+serde = { version = "1", features = ["derive"]} 
+serde_nested_with = "0.2.5"
+serde_arrays = "0.1.0"
+static_assertions = "1.1.0"
+jiff = "0.1.29"
 
 [workspace.lints.rust]
 # missing_docs = "warn"
@@ -17,6 +21,7 @@ tracing-subscriber = "0.3.19"
 [workspace.lints.clippy]
 missing_safety_doc = "deny"
 undocumented_unsafe_blocks = "deny"
+all = "warn"
 
 [package]
 name = "chessagon"
@@ -28,4 +33,11 @@ workspace = true
 
 [dependencies]
 chessagon-core = { path = "crates/core" }
+static_assertions.workspace = true
 
+[profile.release]
+opt-level = 2 # fast and small wasm
+
+# Optimize all dependencies even in debug builds:
+[profile.dev.package."*"]
+opt-level = 2

@@ -9,7 +9,12 @@ pub fn visualize_tile_property<T>(
     to_char: impl Fn(&T) -> char,
 ) -> String {
     let hext_board = Vec2::iter()
-        .map(|position| ([position.x as i32, position.y as i32], property(position)))
+        .map(|position| {
+            (
+                [position.x() as i32, position.y() as i32],
+                property(position),
+            )
+        })
         .collect::<HexagonalBoard<_>>();
 
     hext_board.render_with(to_char)

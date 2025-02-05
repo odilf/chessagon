@@ -1,5 +1,14 @@
+//! Knights of chessagon.
+//!
+//! # Movement
+//!
+//! Knights can move to every tile that is tied for nearest that is not a valid position for a bishop or a rook.
+//!
+//! This may sound very different from the definition in square chess.
+// TODO: Finish docs
+
 use crate::{
-    Color,
+    Color, IVec2,
     board::Board,
     coordinate::Vec2,
     mov::Move,
@@ -12,8 +21,8 @@ use super::rook;
 ///
 /// Knight strides are valid if they're one of the smallest strides that are neither a rook nor a bishop
 /// stride.
-pub fn valid_delta(delta: Vec2<i8>) -> Result<(), MoveError> {
-    let distance = delta.x.abs().max(delta.y.abs()) as u8;
+pub fn valid_delta(delta: IVec2) -> Result<(), MoveError> {
+    let distance = delta.x().abs().max(delta.y().abs()) as u8;
     if distance > 3 {
         return Err(MoveError::TooFarAway { distance });
     }
@@ -25,7 +34,7 @@ pub fn valid_delta(delta: Vec2<i8>) -> Result<(), MoveError> {
     //
     // That also means that the error below can be technically a bit misleading.
     // TODO: Reflect this in error
-    if (delta.x + delta.y) % 3 == 0 {
+    if (delta.x() + delta.y()) % 3 == 0 {
         return Err(MoveError::BishopLikeMovement);
     }
 
@@ -63,21 +72,23 @@ pub fn get_move(
     })
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, thiserror::Error)]
 pub enum MoveError {
-    #[error("TODO")]
+    #[error("Destination is too far away (distance is {distance})")]
     TooFarAway { distance: u8 },
 
-    #[error("TODO")]
+    #[error("Movement is bishop-like")]
     BishopLikeMovement,
 
-    #[error("TODO")]
+    #[error("Movement is rook-like")]
     RookLikeMovement,
 
-    #[error("Blocked")]
+    #[error("{0}")]
     Blocked(#[from] movement::BlockerError),
 }
 
+/// The tiles where the knights are placed at the start of the game.
 pub fn initial_configuration() -> impl Iterator<Item = (Vec2, Color)> {
     [
         (Vec2::new_unchecked(0, 2), Color::White),

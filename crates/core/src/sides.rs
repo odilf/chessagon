@@ -4,9 +4,9 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use crate::coordinate::Vec2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Color {
     White = 0,
     Black = 1,
@@ -66,6 +66,7 @@ impl fmt::Display for Color {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Side {
     King,
     Queen,
@@ -88,15 +89,15 @@ impl Side {
         self.choose(Self::Queen, Self::King)
     }
 
-    /// Makes a step of size `step_size` towards the given side.
-    // TODO: Unit test this function
-    pub const fn step_towards(&self, step_size: i8) -> Vec2<i8> {
-        let x_axis = matches!(*self, Side::Queen) ^ (step_size < 0);
-        match x_axis {
-            true => Vec2::new_unchecked(step_size, 0),
-            false => Vec2::new_unchecked(0, step_size),
-        }
-    }
+    // /// Makes a step of size `step_size` towards the given side.
+    // // TODO: Unit test this function
+    // pub const fn step_towards(&self, step_size: i8) -> IVec2 {
+    //     let x_axis = matches!(*self, Side::Queen) ^ (step_size < 0);
+    //     match x_axis {
+    //         true => Vec2::new_unchecked(step_size, 0),
+    //         false => Vec2::new_unchecked(0, step_size),
+    //     }
+    // }
 }
 
 impl<T> Index<Side> for [T; 2] {

@@ -1,10 +1,8 @@
 use std::collections::HashSet;
 
 use chessagon_core::{
-    Color,
-    board::Board,
+    Board, Color, Move,
     game::{Action, Game, TimeControl},
-    mov::Move,
 };
 
 use crate::Engine;

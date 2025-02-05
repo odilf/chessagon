@@ -1,23 +1,23 @@
-use crate::{Color, board::Board, coordinate::Vec2, mov::Move, piece::movement};
+use crate::{Color, IVec2, board::Board, coordinate::Vec2, ivec2, mov::Move, piece::movement};
 
-pub const fn strides() -> [Vec2<i8>; 6] {
+pub const fn strides() -> [IVec2; 6] {
     [
-        Vec2::new_unchecked(0, 1),
-        Vec2::new_unchecked(1, 1),
-        Vec2::new_unchecked(1, 0),
-        Vec2::new_unchecked(0, -1),
-        Vec2::new_unchecked(-1, -1),
-        Vec2::new_unchecked(-1, 0),
+        ivec2!(0, 1),
+        ivec2!(1, 1),
+        ivec2!(1, 0),
+        ivec2!(0, -1),
+        ivec2!(-1, -1),
+        ivec2!(-1, 0),
     ]
 }
 
-pub const fn valid_stride(stride: Vec2<i8>) -> bool {
+pub const fn valid_stride(stride: IVec2) -> bool {
     (stride.x() == 0 && stride.y().abs() == 1)
         || (stride.x().abs() == 1 && stride.y() == 0)
         || (stride.x().abs() == 1 && stride.x() == stride.y())
 }
 
-pub const fn valid_delta(delta: Vec2<i8>) -> bool {
+pub const fn valid_delta(delta: IVec2) -> bool {
     delta.x() == 0 || delta.y() == 0 || delta.x() == delta.y()
 }
 
@@ -56,9 +56,9 @@ pub fn get_move(
 #[derive(Debug, thiserror::Error)]
 pub enum MoveError {
     #[error("Rooks can only move on straight lines (tried to move with stride {stride})")]
-    InvalidDirection { stride: Vec2<i8> },
+    InvalidDirection { stride: IVec2 },
 
-    #[error("Blocked")]
+    #[error("{0}")]
     Blocked(#[from] movement::BlockerError),
 }
 

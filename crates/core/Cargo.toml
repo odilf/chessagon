@@ -4,11 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-nalgebra.workspace = true
 thiserror.workspace = true
 strum.workspace = true
 tracing.workspace = true
-hext-boards.workspace = true 
+hext-boards.workspace = true
+bytemuck.workspace = true
+serde = { workspace = true, optional = true }
+serde_nested_with = { workspace = true, optional = true }
+serde_arrays = { workspace = true, optional = true }
+jiff.workspace = true
+static_assertions.workspace = true
 gcd = "2.3.0"
 
 [lints]
@@ -16,3 +21,6 @@ workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true
+
+[features]
+serde = ["dep:serde", "dep:serde_nested_with", "dep:serde_arrays", "jiff/serde"]

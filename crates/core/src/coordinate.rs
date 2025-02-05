@@ -17,81 +17,51 @@
 //! This sounds nice because it's easier to think about, but the problem then is that the two
 //! neighbors are at `1/√2` distances, which are very annoying. TODO: Is this necessarly true?
 
-use core::fmt;
-use std::fmt::{Debug, Display};
-use std::ops::{self, Deref, DerefMut};
+use std::{cmp::min, fmt, ops};
 
-use std::hash::Hash;
-
-use nalgebra::{Scalar, coordinates::XY};
+mod tests;
 
 /// A vector in hexagonal coordinates, inside of the hexagonal chessboard.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub struct Vec2<T = u8>(nalgebra::Vector2<T>);
-
-impl<T: Debug + Copy + Display> Debug for Vec2<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if f.alternate() {
-            write!(f, "Vec2(\n    {},\n    {}\n)", self.x(), self.y())
-        } else {
-            write!(f, "Vec2({},{})", self.x(), self.y())
-        }
-    }
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Vec2 {
+    x: u8,
+    y: u8,
 }
 
-impl<T: Hash + Scalar> Hash for Vec2<T> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state)
-    }
+/// Construct a [`Vec2`] that is checked to be valid at compile-time
+#[macro_export]
+macro_rules! vec2 {
+    ($x:literal, $y:literal) => {{
+        static_assertions::const_assert!($crate::Vec2::is_valid($x, $y));
+        $crate::Vec2::new_unchecked($x, $y)
+    }};
 }
 
-impl<T: Scalar> Deref for Vec2<T> {
-    type Target = XY<T>;
-    fn deref(&self) -> &Self::Target {
-        self.0.deref()
-    }
+/// A valid differenece between two [`Vec2`]s.
+///
+/// This type is obtained by doing subtraction via [`ops::Sub`] on two [`Vec2`]s.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct IVec2 {
+    x: i8,
+    y: i8,
 }
 
-impl<T: Scalar> DerefMut for Vec2<T> {
-    fn deref_mut(&mut self) -> &mut <Self as Deref>::Target {
-        self.0.deref_mut()
-    }
+/// Construct an [`IVec2`] that is checked to be valid at compile-time
+#[macro_export]
+macro_rules! ivec2 {
+    ($x:literal, $y:literal) => {{
+        static_assertions::const_assert!($crate::coordinate::IVec2::is_valid($x, $y));
+        $crate::IVec2::new_unchecked($x, $y)
+    }};
 }
 
-// Generic, non-hexagonal, implementations
-impl<T> Vec2<T> {
-    /// const-compatible way of doing `self.x`
-    pub const fn x(&self) -> T
-    where
-        T: Copy,
-    {
-        self.0.data.0[0][0]
-    }
-
-    /// const-compatible way of doing `self.y`
-    pub const fn y(&self) -> T
-    where
-        T: Copy,
-    {
-        self.0.data.0[0][1]
-    }
-
-    /// Creates a new vector in hexagonal basis.
-    ///
-    /// Doesn't check if it's a valid hexagonal chess position.
-    #[inline]
-    pub const fn new_unchecked(x: T, y: T) -> Self {
-        let vec = nalgebra::Vector2::new(x, y);
-        Self(vec)
-    }
-
-    // pub fn map<U>(self, f: impl Fn(T) -> U) -> Vec2<U>
-    // where
-    //     T: Copy,
-    // {
-    //     Vec2::new_unchecked(f(self.x()), f(self.y()))
-    // }
-}
+///////////////////////////////////////////////////////////////////////////////
+/// Chessagon specific implementations
+///////////////////////////////////////////////////////////////////////////////
 
 impl Vec2 {
     /// The maximum value that a coordinate can have.
@@ -106,15 +76,24 @@ impl Vec2 {
     /// The maximum value for the file of a tile.
     pub const MAX_FILE: u8 = 10;
 
+    /// Whether these coordinates are possible in a chesssagon board.
+    ///
+    /// For the coordinates to be valid, the following conditions must be met:
+    /// - `|x - y| <= WIDTH`
+    /// - `x <= MAX` and `y <= MAX`
+    pub const fn is_valid(x: u8, y: u8) -> bool {
+        x.abs_diff(y) <= Self::WIDTH && x <= Self::MAX && y <= Self::MAX
+    }
+
     /// Create a new vector.
     ///
     /// Returns `Err` if it's outside of the standard board.
-    pub const fn new(x: u8, y: u8) -> Result<Self, ()> {
-        if x.abs_diff(y) > Self::WIDTH || x > Self::MAX || y > Self::MAX {
-            return Err(());
+    pub const fn new(x: u8, y: u8) -> Option<Self> {
+        if !Self::is_valid(x, y) {
+            return None;
         }
 
-        Ok(Self::new_unchecked(x, y))
+        Some(Self::new_unchecked(x, y))
     }
 
     /// Iterator over all valid hexagonal coordinates
@@ -138,7 +117,7 @@ impl Vec2 {
     ///
     /// Computed as the sum of the coordinates, mod 3.
     pub const fn index(&self) -> u8 {
-        (self.x() + self.y()) % 3
+        (self.x + self.y) % 3
     }
 
     /// The hexagonal analogous to a row.
@@ -152,7 +131,7 @@ impl Vec2 {
     /// Computed as the sum of the coordinates.
     #[inline]
     pub const fn rank(&self) -> u8 {
-        self.x() + self.y()
+        self.x + self.y
     }
 
     /// The hexagonal analogous to a column.
@@ -167,13 +146,13 @@ impl Vec2 {
     #[inline]
     pub const fn file(&self) -> u8 {
         // The 5 has to be at the start to avoid an underflow error.
-        5 + self.y() - self.x()
+        5 + self.y - self.x
     }
 
     /// The corresponding vector from the other side of the board.
     #[inline]
     pub const fn flipped(self) -> Self {
-        Vec2::new_unchecked(Self::MAX - self.x(), Self::MAX - self.y())
+        Vec2::new_unchecked(Self::MAX - self.x, Self::MAX - self.y)
     }
 
     /// Number of valid coordinates with a given rank
@@ -191,7 +170,7 @@ impl Vec2 {
         // We have `rank = x + y`, so
         //
         // TODO: Explain the reasoning of this function
-        (rank.min(Self::MAX_RANK - rank) / 2).min(2) * 2 + 1 + rank % 2
+        min(min(rank, Self::MAX_RANK - rank) / 2, 2) * 2 + 1 + rank % 2
         // let max_valid_rank_coordinate = rank - 1;
         // max_valid_rank_coordinate - Vec2::min_valid_rank_coordinate(rank)
     }
@@ -222,163 +201,155 @@ impl Vec2 {
 
         h.max(w).max(0) as u8
     }
+
+    /// The smallest number of adjacent tiles you have to traverse in order to go from `self`
+    /// to `other`.
+    ///
+    /// See also [`IVec2::distance`].
+    #[inline]
+    pub fn distance(self, other: Vec2) -> u8 {
+        (other - self).distance()
+    }
 }
 
-impl Vec2<i8> {
-    #[allow(missing_docs)]
-    pub const ZERO: Self = Vec2::new_unchecked(0, 0);
+impl IVec2 {
+    /// Whether these coordinates are possible in a chesssagon board.
+    ///
+    /// A valid [`IVec2`] is the difference between two valid [`Vec2`], where a [valid `Vec2`](Vec2::is_valid)
+    /// has the properties:
+    /// - `|x - y| <= WIDTH`
+    /// - `x <= MAX` and `y <= MAX`
+    ///
+    /// Therefore we need to find out if, for some coordinates `x` and `y` there are two vectors `v1` and `v2`
+    /// such that `v1 - v2 == (x, y)`, or `x1 - x2 == x` and `y1 - y2 == y`.
+    ///
+    ///  
+    /// For completeness, panics if `x` or `y` is `i8::MIN`.
+    pub const fn is_valid(x: i8, y: i8) -> bool {
+        // TODO: This allows some incorrect values
+        x.abs() <= Vec2::MAX as i8 && y.abs() <= Vec2::MAX as i8
+    }
+
+    /// The smallest number of adjacent tiles you have to traverse in order to go from `self`
+    /// to `other`.
+    ///
+    /// See also [`Vec2::distance`].
+    pub fn distance(&self) -> u8 {
+        let x = self.x.abs() as u8;
+        let y = self.y.abs() as u8;
+
+        // A movement from a tile to another tile is split into vertical (1, 1) and non-vertical
+        // (0, 1)/(1, 0) movement. `x.min(y)` computes the vertical distance and `|x - y|` computes
+        // the rest.
+        x.min(y) + x.abs_diff(y)
+    }
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// Math and operations
+///////////////////////////////////////////////////////////////////////////////
 
 impl ops::Sub<Vec2> for Vec2 {
-    type Output = Vec2<i8>;
+    type Output = IVec2;
     fn sub(self, rhs: Vec2) -> Self::Output {
-        Vec2(self.0.cast() - rhs.0.cast())
+        IVec2 {
+            x: self.x as i8 - rhs.x as i8,
+            y: self.y as i8 - rhs.y as i8,
+        }
     }
 }
 
-impl ops::Add<Vec2> for Vec2 {
-    type Output = Vec2<u8>;
-    fn add(self, rhs: Vec2) -> Self::Output {
-        Vec2(self.0 + rhs.0)
+impl ops::Add<IVec2> for Vec2 {
+    type Output = Vec2;
+    fn add(self, rhs: IVec2) -> Self::Output {
+        Vec2 {
+            x: self.x.wrapping_add(rhs.x as u8),
+            y: self.y.wrapping_add(rhs.y as u8),
+        }
     }
 }
 
-impl ops::Add<Vec2<i8>> for Vec2 {
-    type Output = Vec2<u8>;
-    fn add(self, rhs: Vec2<i8>) -> Self::Output {
-        Vec2::new_unchecked(
-            self.x.wrapping_add(rhs.x as u8),
-            self.y.wrapping_add(rhs.y as u8),
-        )
-    }
-}
-
-impl<T> ops::Mul<T> for Vec2<T>
-where
-    T: Copy + ops::Mul<T, Output = T>,
-{
-    type Output = Vec2<T>;
-    fn mul(self, rhs: T) -> Self::Output {
-        Vec2::new_unchecked(self.x() * rhs, self.y() * rhs)
-    }
-}
-
-impl<T> ops::Div<T> for Vec2<T>
-where
-    T: Copy + ops::Div<T, Output = T>,
-{
-    type Output = Vec2<T>;
-    fn div(self, rhs: T) -> Self::Output {
-        Vec2::new_unchecked(self.x() / rhs, self.y() / rhs)
-    }
-}
-
-// We could relax the `T: Copy` requirement and add `self.x_ref()` methods, but that's unnecessary
-// because we only ever use simple numeric types for `T`.
-impl<T: fmt::Display + Copy> fmt::Display for Vec2<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}, {})", self.x(), self.y())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use pretty_assertions::assert_eq;
-    use std::collections::HashSet;
-
-    use crate::diagrams;
-
-    use super::Vec2;
-
-    #[test]
-    fn rank_is_between_0_and_max() {
-        let mut ranks = (0..=Vec2::MAX_RANK).collect::<HashSet<_>>();
-        for position in Vec2::iter() {
-            ranks.remove(&position.rank());
+macro_rules! impl_generic_vec {
+    (
+        impl Vec2 {
+            $($inherent_implementation:tt)*
         }
 
-        assert!(ranks.is_empty())
-    }
 
-    #[test]
-    fn rank_width_matches_manual_impl() {
-        let manual_rank = |rank| match rank {
-            0 => 1,
-            1 => 2,
-            2 => 3,
-            3 => 4,
-            4 => 5,
-            5 => 6,
-            6 => 5,
-            7 => 6,
-            8 => 5,
-            9 => 6,
-            10 => 5,
-            11 => 6,
-            12 => 5,
-            13 => 6,
-            14 => 5,
-            15 => 6,
-            16 => 5,
-            17 => 4,
-            18 => 3,
-            19 => 2,
-            20 => 1,
-            _ => panic!("Invalid rank {rank}"),
-        };
+        $($implementation:tt)*
+    ) => {
+        mod __vec2_generic_impls {
+            use super::*;
+            type T = u8;
 
-        for rank in 0..=Vec2::MAX_RANK {
-            assert_eq!(manual_rank(rank), Vec2::rank_width(rank));
+
+            impl Vec2 {
+                $($inherent_implementation)*
+            }
+
+            $($implementation)*
+        }
+
+        mod __ivec2_generic_impls {
+            use super::*;
+            type T = i8;
+            type Vec2 = IVec2;
+
+            macro_rules! vec2 { ($x:tt, $y:tt) => { ivec2!($x, $y) } }
+
+            impl IVec2 {
+                $($inherent_implementation)*
+            }
+
+            $($implementation)*
+        }
+   }
+}
+
+impl_generic_vec! {
+    impl Vec2 {
+        #[inline(always)]
+        pub const fn new_unchecked(x: T, y: T) -> Self {
+            Self { x, y }
+        }
+
+        pub const ZERO: Self = vec2!(0, 0);
+
+        #[inline(always)]
+        pub const fn x(&self) -> T {
+            self.x
+        }
+
+        #[inline(always)]
+        pub const fn y(&self) -> T {
+            self.y
         }
     }
 
-    #[test]
-    fn file_is_between_0_and_10() {
-        let mut ranks = (0..=10).collect::<HashSet<_>>();
-        for position in Vec2::iter() {
-            ranks.remove(&position.file());
+
+    impl ops::Mul<T> for Vec2
+    where
+        T: ops::Mul<T, Output = T>,
+    {
+        type Output = Vec2;
+        fn mul(self, rhs: T) -> Self::Output {
+            Vec2::new_unchecked(self.x * rhs, self.y * rhs)
         }
-
-        assert!(ranks.is_empty())
     }
 
-    #[test]
-    fn files_match_diagram() {
-        let rendered = diagrams::visualize_tile_property(
-            |position| position.file(),
-            |file| char::from_digit(*file as u32, 16).unwrap(),
-        );
-
-        assert_eq!(rendered.trim(), diagrams::FILES.trim());
+    impl ops::Div<T> for Vec2
+    where
+        T: Copy + ops::Div<T, Output = T>,
+    {
+        type Output = Vec2;
+        fn div(self, rhs: T) -> Self::Output {
+            Vec2::new_unchecked(self.x / rhs, self.y / rhs)
+        }
     }
 
-    #[test]
-    fn ranks_match_diagram() {
-        let rendered = diagrams::visualize_tile_property(
-            |position| position.rank(),
-            |rank| char::from_digit(*rank as u32, 36).unwrap(),
-        );
-
-        assert_eq!(rendered.trim(), diagrams::RANKS.trim());
-    }
-
-    #[test]
-    fn rank_widths_match_diagram() {
-        let rendered = diagrams::visualize_tile_property(
-            |position| Vec2::rank_width(position.rank()),
-            |width| char::from_digit(*width as u32, 16).unwrap(),
-        );
-
-        assert_eq!(rendered.trim(), diagrams::RANK_WIDTHS.trim());
-    }
-
-    #[test]
-    fn min_valid_rank_coordinates_match_diagram() {
-        let rendered = diagrams::visualize_tile_property(
-            |position| Vec2::min_valid_rank_coordinate(position.rank()),
-            |width| char::from_digit(*width as u32, 16).unwrap(),
-        );
-
-        assert_eq!(rendered.trim(), diagrams::MIN_VALID_RANK_COORDINATES.trim());
+    impl fmt::Display for Vec2 {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "({}, {})", self.x, self.y)
+        }
     }
 }

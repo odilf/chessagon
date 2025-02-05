@@ -1,9 +1,5 @@
 use crate::Engine;
-use chessagon_core::{
-    Color,
-    board::Board,
-    game::{Game, TimeControl},
-};
+use chessagon_core::{Board, Color, Game, game::TimeControl};
 
 pub fn match_engines_from_position<White: Engine, Black: Engine>(
     board: Board,

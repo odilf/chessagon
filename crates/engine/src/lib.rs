@@ -1,9 +1,8 @@
 #![allow(missing_docs)]
 
 use chessagon_core::{
-    Color,
-    board::Board,
-    game::{Action, Game, TimeControl},
+    Board, Color, Game,
+    game::{Action, ApplyActionError, TimeControl},
 };
 
 pub mod matcher;
@@ -22,5 +21,10 @@ pub trait Engine {
     fn eval_for(&mut self, board: &Board, color: Color) -> f64 {
         let eval = self.eval(board);
         color.choose(eval, -eval)
+    }
+
+    fn play(&mut self, game: &mut Game) -> Result<(), ApplyActionError> {
+        let action = self.get_action(game);
+        game.apply_action(action, game.turn())
     }
 }

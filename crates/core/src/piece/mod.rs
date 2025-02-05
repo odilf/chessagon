@@ -1,3 +1,7 @@
+//! Actors of chessagon.
+//!
+//! Includes utilities for each specific kind of bishop.
+
 pub mod bishop;
 pub mod king;
 pub mod knight;
@@ -7,6 +11,7 @@ pub mod queen;
 pub mod rook;
 
 use core::fmt;
+use std::ops::Index;
 
 use strum::EnumString;
 
@@ -19,19 +24,20 @@ use crate::{
 
 /// A piece in chessagon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Piece {
     /// A [`pawn`]
-    Pawn,
+    Pawn = 0,
     /// A [`knight`]
-    Knight,
+    Knight = 1,
     /// A [`bishop`]
-    Bishop,
+    Bishop = 2,
     /// A [`rook`]
-    Rook,
+    Rook = 3,
     /// A [`queen`]
-    Queen,
+    Queen = 4,
     /// A [`king`]
-    King,
+    King = 5,
 }
 
 impl Piece {
@@ -139,22 +145,22 @@ pub enum MoveError {
     #[error("The origin and the destination can't be the same tile")]
     NullMovement,
 
-    #[error("Can't move pawn")]
+    #[error("{0}")]
     Pawn(#[from] pawn::MoveError),
 
-    #[error("Can't move bishop")]
+    #[error("{0}")]
     Bishop(#[from] bishop::MoveError),
 
-    #[error("Can't move knight")]
+    #[error("{0}")]
     Knight(#[from] knight::MoveError),
 
-    #[error("Can't move rook")]
+    #[error("{0}")]
     Rook(#[from] rook::MoveError),
 
-    #[error("Can't move queen")]
+    #[error("{0}")]
     Queen(#[from] queen::MoveError),
 
-    #[error("Can't move king")]
+    #[error("{0}")]
     King(#[from] king::MoveError),
 
     #[error("Move leaves king unprotected (could by captured by {capturing_move})")]
@@ -229,5 +235,13 @@ impl Piece {
 impl fmt::Display for Piece {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.name())
+    }
+}
+
+impl<T> Index<Piece> for [T; 6] {
+    type Output = T;
+    fn index(&self, index: Piece) -> &Self::Output {
+        // TODO: This could be `get_unchecked`
+        &self[index as usize]
     }
 }
