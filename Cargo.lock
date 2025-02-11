@@ -706,6 +706,7 @@ dependencies = [
  "env_logger",
  "serde",
  "tracing",
+ "tracing-subscriber",
  "wasm-bindgen-futures",
  "web-sys",
 ]

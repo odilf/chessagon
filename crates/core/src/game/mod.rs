@@ -265,6 +265,10 @@ impl Game {
     pub fn draw_offer(&self) -> Option<Color> {
         self.draw_offer
     }
+
+    pub fn time_control(&self) -> TimeControl {
+        self.time_control
+    }
 }
 
 /// The result of a [`Game`]

@@ -1,26 +1,31 @@
+use std::{fmt, sync::mpsc};
+
+use chessagon_engine::{Engine, models::Anthony};
 use egui::{Align, FontData, FontDefinitions, FontFamily, Label, Layout, vec2};
 use egui_notify::Toasts;
 
 use crate::{
     ColorScheme,
     color_scheme::ColorSchemeRgba,
-    game::{GameScreen, GameScreenEvent},
+    game::{GameScreen, GameScreenDisconnected, GameScreenEvent},
     main_menu::MainMenu,
 };
 
-#[derive(Default, serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
-pub struct App {
+pub struct App<GS = GameScreen> {
     screen: Screen,
     color_scheme: ColorScheme,
 
     #[serde(skip)]
     main_menu_screen: MainMenu,
-    game_screen: Option<GameScreen>,
+    game_screen: Option<GS>,
 
     #[serde(skip)]
     toasts: egui_notify::Toasts,
 }
+
+type AppDisconnected = App<GameScreenDisconnected>;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum Screen {
@@ -30,29 +35,24 @@ pub enum Screen {
     Game,
 }
 
+impl AppDisconnected {
+    fn connect(self) -> App {
+        App {
+            game_screen: self.game_screen.map(|gs| gs.connect()),
+
+            screen: self.screen,
+            color_scheme: self.color_scheme,
+            main_menu_screen: self.main_menu_screen,
+            toasts: self.toasts,
+        }
+    }
+}
+
 impl App {
-    /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        // This is also where you can customize the look and feel of egui using
-        // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
-        let color_scheme = ColorScheme::default();
+    /// Sets the style for the app.
+    fn set_style(cc: &eframe::CreationContext<'_>, color_scheme: ColorScheme) {
+        // TODO: There's probably more to customize
         let color_scheme_rgb = ColorSchemeRgba::from(color_scheme);
-
-        // Colors between egui and shader are different :(
-        // assert_eq!(
-        //     egui::Rgba::from(color_scheme.background),
-        //     ColorSchemeRgba::from(color_scheme).background,
-        // );
-
-        // assert_eq!(
-        //     Color32::from(color_scheme.background),
-        //     Color32::from(color_scheme_rgb.background)
-        // );
-
-        // dbg!(
-        //     color_scheme_rgb.background,
-        //     Color32::from(color_scheme.background)
-        // );
 
         cc.egui_ctx.set_visuals(egui::Visuals {
             menu_corner_radius: egui::CornerRadius::same(0),
@@ -90,15 +90,27 @@ impl App {
 
             fonts
         });
+    }
 
+    /// Called once before the first frame.
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // To load svgs
         egui_extras::install_image_loaders(&cc.egui_ctx);
 
-        // Load previous app state (if any).
-        // Note that you must enable the `persistence` feature for this to work.
+        let color_scheme = ColorScheme::purple();
+        Self::set_style(cc, color_scheme);
+
+        // Load previous app state.
         if let Some(storage) = cc.storage {
             crate::board::gpu::prepare(cc.wgpu_render_state.as_ref().unwrap());
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+
+            let app: AppDisconnected =
+                eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+
+            tracing::info!("Loaded app state from storage.");
+            tracing::debug!("State is {app:?}");
+
+            return app.connect();
         }
 
         Self {
@@ -107,6 +119,29 @@ impl App {
             game_screen: None,
             main_menu_screen: MainMenu::default(),
             toasts: Toasts::new(),
+        }
+    }
+}
+
+impl<GS: fmt::Debug> fmt::Debug for App<GS> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("App")
+            .field("screen", &self.screen)
+            .field("color_scheme", &self.color_scheme)
+            .field("main_menu_screen", &self.main_menu_screen)
+            .field("game_screen", &self.game_screen)
+            .finish_non_exhaustive()
+    }
+}
+
+impl<GS> Default for App<GS> {
+    fn default() -> Self {
+        Self {
+            screen: Default::default(),
+            color_scheme: Default::default(),
+            main_menu_screen: Default::default(),
+            game_screen: Default::default(),
+            toasts: Default::default(),
         }
     }
 }

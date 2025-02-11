@@ -1,3 +1,5 @@
+use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
+
 use crate::GuiBoard;
 use chessagon_core::{
     Color, Game,
@@ -10,15 +12,92 @@ use egui_notify::Toasts;
 mod timer;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub struct GameScreen {
+pub struct GameScreen<S = Sender<Action>, R = Receiver<Action>> {
     /// The color of the player
     pub color: Color,
     pub game: Game,
     pub gui_board: GuiBoard,
+
+    /// Send your actions.
+    #[serde(skip)]
+    pub action_sender: S,
+
+    /// Receive opponent's actions.
+    #[serde(skip)]
+    pub opponent_action_receiver: R,
 }
+
+// TODO: Maybe it's just easier to have two distinct types...
+pub type GameScreenDisconnected = GameScreen<(), ()>;
 
 pub enum GameScreenEvent {
     Reset,
+}
+
+impl GameScreenDisconnected {
+    fn connect_to_channel(
+        self,
+        opponent_action_receiver: Receiver<Action>,
+    ) -> (GameScreen, Receiver<Action>) {
+        let (sender, receiver) = mpsc::channel();
+
+        (
+            GameScreen {
+                action_sender: sender,
+                opponent_action_receiver,
+
+                color: self.color,
+                game: self.game,
+                gui_board: self.gui_board,
+            },
+            receiver,
+        )
+    }
+
+    pub fn connect(self) -> GameScreen {
+        let mut opponent = Anthony::new(self.color.other(), self.game.time_control());
+
+        let (opponent_sender, opponent_receiver) = mpsc::channel();
+        let (output, player_receiver) = self.connect_to_channel(opponent_receiver);
+
+        {
+            let mut game = output.game.clone();
+            let player_color = output.color;
+            std::thread::spawn(move || {
+                // TODO: This has clearly too many unwraps
+                tracing::info!("Starting engine in other thread");
+                loop {
+                    if game.turn() == player_color {
+                        tracing::debug!("Waiting for player action");
+                        let player_action = player_receiver.recv().unwrap();
+                        tracing::debug!("Got {player_action:?} from player");
+                        game.apply_action(player_action, player_color).unwrap();
+                    }
+
+                    tracing::debug!("getting engine action");
+                    let action = opponent.get_action(&game);
+
+                    tracing::debug!("Got action {action:?} from engine");
+                    opponent_sender.send(action).unwrap();
+                    game.apply_action(action, player_color.other()).unwrap();
+                }
+            });
+        }
+
+        output
+    }
+
+    pub fn new(frame: &mut eframe::Frame) -> Option<GameScreen> {
+        let disconnected = GameScreenDisconnected {
+            color: Color::White,
+            game: Game::new(TimeControl::rapid()),
+            gui_board: GuiBoard::new(frame)?,
+            action_sender: (),
+            opponent_action_receiver: (),
+        };
+
+        Some(disconnected.connect())
+    }
 }
 
 impl GameScreen {
@@ -28,6 +107,15 @@ impl GameScreen {
         ctx: &Context,
         toasts: &mut Toasts,
     ) -> Option<GameScreenEvent> {
+        match self.opponent_action_receiver.try_recv() {
+            Ok(action) => {
+                tracing::info!("got action {action:?} from opponent");
+                self.game.apply_action(action, self.color.other()).unwrap()
+            }
+            Err(TryRecvError::Empty) => (),
+            Err(err) => panic!("{err}"),
+        }
+
         let mut event = None;
         ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
             let panel_size = 200.0;
@@ -84,51 +172,21 @@ impl GameScreen {
                         }
                     };
 
-                    // if self.game.can_accept_draw(self.color) {
-                    //     if ui.button("Accept draw").clicked() {
-                    //         self.game
-                    //             .accept_draw(self.color)
-                    //             .expect("We checked we can accept draws");
-                    //     }
-                    // } else {
-                    //     let offer_draw_button = ui.button("Offer draw");
-                    //     offer_draw_button.on_disabled_hover_text("You have already offered a draw");
-
-                    //     if ui
-                    //         .add_enabled(self.game.draw_offer().is_some(), add_contents)
-                    //         .button("Offer draw")
-                    //         .clicked()
-                    //     {
-                    //         self.game.offer_draw(self.color).unwrap();
-                    //     }
-                    // }
-
                     timer::draw(ui, ctx, self.game.time_remaining(self.color));
                 },
             );
 
             if let Some(mov) = mov {
+                self.action_sender.send(Action::Move(mov)).unwrap();
+
                 if let Err(err) = self.game.apply_action(Action::Move(mov), self.color) {
                     toasts.warning(err.to_string());
                 }
             }
 
-            if self.game.turn() == self.color.other() {
-                // TODO: Move this off the main thread
-                // TODO: Support more than just playing against the engine
-                let mut engine = Anthony::new(self.color.other(), TimeControl::rapid());
-                engine.play(&mut self.game).unwrap();
-            }
+            // if self.game.turn() == self.color.other() {}
         });
 
         event
-    }
-
-    pub fn new(frame: &mut eframe::Frame) -> Option<Self> {
-        Some(Self {
-            color: Color::White,
-            game: Game::new(TimeControl::rapid()),
-            gui_board: GuiBoard::new(frame)?,
-        })
     }
 }

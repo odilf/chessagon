@@ -5,6 +5,9 @@ use std::num::NonZeroU64;
 
 use super::Uniforms;
 
+/// Prepares the gpu in the correct state.
+///
+/// It loads the shader and sets the binding groups for the uniforms.
 pub fn prepare(wgpu_render_state: &RenderState) {
     let device = &wgpu_render_state.device;
 

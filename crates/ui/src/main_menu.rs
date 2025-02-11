@@ -2,7 +2,7 @@ use egui::{Align, FontFamily, Label, Layout, RichText, vec2};
 
 use crate::app::Screen;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct MainMenu {
     // decoration_tile_angle: f32,
 }
