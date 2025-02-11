@@ -17,7 +17,10 @@
 //! This sounds nice because it's easier to think about, but the problem then is that the two
 //! neighbors are at `1/√2` distances, which are very annoying. TODO: Is this necessarly true?
 
-use std::{cmp::min, fmt, ops};
+use std::{
+    cmp::{max, min},
+    fmt, ops,
+};
 
 mod tests;
 
@@ -75,6 +78,8 @@ impl Vec2 {
 
     /// The maximum value for the file of a tile.
     pub const MAX_FILE: u8 = 10;
+
+    pub const CENTER: Self = vec2!(5, 5);
 
     /// Whether these coordinates are possible in a chesssagon board.
     ///
@@ -205,10 +210,10 @@ impl Vec2 {
     /// The smallest number of adjacent tiles you have to traverse in order to go from `self`
     /// to `other`.
     ///
-    /// See also [`IVec2::distance`].
+    /// See also [`IVec2::length`].
     #[inline]
     pub fn distance(self, other: Vec2) -> u8 {
-        (other - self).distance()
+        (other - self).length()
     }
 }
 
@@ -234,14 +239,32 @@ impl IVec2 {
     /// to `other`.
     ///
     /// See also [`Vec2::distance`].
-    pub fn distance(&self) -> u8 {
-        let x = self.x.abs() as u8;
-        let y = self.y.abs() as u8;
+    pub fn length(&self) -> u8 {
+        // Adjecent moves are either (1, 0), (0, 1) or (1, 1).
+        //
+        // There are two possible cases:
+        //
+        // 1. The sign of `x` is different to the sign of `y`: In this scenario, there are no
+        // (1, 1) components, since adding that would make the resulting position be closer to one
+        // coordinate and further from the other, so you would still need the same amount of moves
+        // after that to reach the target which means you would just be adding 1 length with no reason,
+        // which means the path would no longer be optimal.
+        //
+        // Therefore in this case, the result is the sum of the absolute values.
+        //
+        // 2. The sign of `x` and `y` are the same. In this scenario, there is some amount of movement `u`
+        // in the (1, 1) direction and some `v` in the (0, 1) or (1, 0) (where both `u` and `v` can be negative).
+        // Then, the vector would be decomposable as `(u + v, u)` or `(u, u + v)`, so the total distance (i.e.,
+        // `u + v`) would be the max of the two coordinates.
 
-        // A movement from a tile to another tile is split into vertical (1, 1) and non-vertical
-        // (0, 1)/(1, 0) movement. `x.min(y)` computes the vertical distance and `|x - y|` computes
-        // the rest.
-        x.min(y) + x.abs_diff(y)
+        if self.x.signum() == self.y.signum() {
+            max(self.x.abs() as u8, self.y.abs() as u8)
+        } else {
+            // Since `x` and `y` have different signs in this case, we might aswell take the absolute difference?
+            // I feel this may be faster, but I feel even more that this is not going to even be measurable.
+            // Alternative: `self.x.abs() as u8 + self.y.abs() as u8`.
+            self.x.abs_diff(self.y)
+        }
     }
 }
 

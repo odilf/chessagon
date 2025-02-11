@@ -5,15 +5,15 @@
 //! Knights can move to every tile that is tied for nearest that is not a valid position for a bishop or a rook.
 //!
 //! This may sound very different from the definition in square chess.
-// TODO: Finish docs
+//!
+//! TODO: Finish docs
+//!
+//! The movement from the center is as follows:
+//! ```txt
+#![doc = include_str!("../diagrams/movement_knight.txt")]
+//! ```
 
-use crate::{
-    Color, IVec2,
-    board::Board,
-    coordinate::Vec2,
-    mov::Move,
-    piece::{Piece, movement},
-};
+use crate::{Color, IVec2, board::Board, coordinate::Vec2, mov::Move, piece::movement};
 
 use super::rook;
 
@@ -22,7 +22,8 @@ use super::rook;
 /// Knight strides are valid if they're one of the smallest strides that are neither a rook nor a bishop
 /// stride.
 pub fn valid_delta(delta: IVec2) -> Result<(), MoveError> {
-    let distance = delta.x().abs().max(delta.y().abs()) as u8;
+    // let distance = delta.x().abs().max(delta.y().abs()) as u8;
+    let distance = delta.length();
     if distance > 3 {
         return Err(MoveError::TooFarAway { distance });
     }
@@ -56,9 +57,6 @@ pub fn get_move(
     board: &Board,
     color: Color,
 ) -> Result<Move, MoveError> {
-    debug_assert_ne!(origin, destination);
-    debug_assert_eq!(board.get(origin, color), Some(Piece::Knight));
-
     let delta = destination - origin;
     valid_delta(delta)?;
 
@@ -97,4 +95,35 @@ pub fn initial_configuration() -> impl Iterator<Item = (Vec2, Color)> {
         (Vec2::new_unchecked(10, 8), Color::Black),
     ]
     .into_iter()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        diagrams,
+        piece::{Piece, knight},
+        vec2,
+    };
+
+    use super::*;
+
+    #[test]
+    fn fn_moves_from_center_match_diagram() {
+        let board = Board::new_minimal(Vec2::ZERO, vec2!(0, 1)).unwrap();
+        let diagram = diagrams::visualize_tile_property(
+            |dest| {
+                if dest == Vec2::CENTER {
+                    return Piece::Knight.emoji(Color::White);
+                }
+
+                match knight::get_move(Vec2::CENTER, dest, &board, Color::White) {
+                    Ok(_) => 'x',
+                    Err(_) => ' ',
+                }
+            },
+            |x| *x,
+        );
+
+        assert_eq!(diagrams::MOVEMENT_KNIGHT.trim_end(), diagram.trim_end())
+    }
 }

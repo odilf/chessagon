@@ -3,7 +3,7 @@
 use pretty_assertions::assert_eq;
 use std::collections::HashSet;
 
-use crate::diagrams;
+use crate::{diagrams, ivec2};
 
 use super::*;
 
@@ -118,4 +118,26 @@ fn fn_is_valid_in_ivec2_returns_valid_for_every_vec2_diff_and_invalid_otherwise(
             )
         }
     }
+}
+
+#[test]
+fn fn_length_returns_correct_distances_for_a_few_values() {
+    // Length 0 and 1
+    assert_eq!(ivec2!(0, 0).length(), 0);
+    assert_eq!(ivec2!(0, 1).length(), 1);
+    assert_eq!(ivec2!(1, 0).length(), 1);
+    assert_eq!(ivec2!(1, 1).length(), 1);
+    assert_eq!(ivec2!(0, -1).length(), 1);
+    assert_eq!(ivec2!(-1, 0).length(), 1);
+    assert_eq!(ivec2!(-1, -1).length(), 1);
+
+    // More lengths
+    assert_eq!(ivec2!(2, 1).length(), 2);
+    assert_eq!(ivec2!(2, -1).length(), 3);
+    assert_eq!(ivec2!(2, 0).length(), 2);
+    assert_eq!(ivec2!(2, 3).length(), 3);
+    assert_eq!(ivec2!(3, 3).length(), 3);
+    assert_eq!(ivec2!(-3, 3).length(), 6);
+    assert_eq!(ivec2!(-1, 5).length(), 6);
+    assert_eq!(ivec2!(2, 4).length(), 4);
 }

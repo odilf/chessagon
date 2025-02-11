@@ -49,8 +49,14 @@ impl Board {
     pub const NUMBER_OF_RANKS: u8 = 11;
 
     /// Creates a new board with the minimal number of pieces (i.e, two kings).
+    ///
+    /// Returns [`None`] if trying to place the white king and the black king in the same position:w
     // TODO: This should maybe return an error because some positions could be impossible to reach normally.
-    pub fn new_minimal(white_king_position: Vec2, black_king_position: Vec2) -> Self {
+    pub fn new_minimal(white_king_position: Vec2, black_king_position: Vec2) -> Option<Self> {
+        if white_king_position == black_king_position {
+            return None;
+        }
+
         let mut output = Self {
             pieces: [[None; Self::NUMBER_OF_TILES as usize]; 2],
             last_move: None,
@@ -59,7 +65,7 @@ impl Board {
         output.pieces[Color::White][Board::index(white_king_position)] = Some(Piece::King);
         output.pieces[Color::Black][Board::index(black_king_position)] = Some(Piece::King);
 
-        output
+        Some(output)
     }
 
     /// Returns the index where the position is stored in the array.
