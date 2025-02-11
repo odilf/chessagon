@@ -102,14 +102,16 @@ fn min_valid_rank_coordinates_match_diagram() {
 #[test]
 fn fn_is_valid_in_ivec2_returns_valid_for_every_vec2_diff_and_invalid_otherwise() {
     let mut visited = HashSet::new();
+    // Disallows all invalid vec2 diffs
     for a in Vec2::iter() {
         for b in Vec2::iter() {
-            let diff = a - b;
-            assert!(IVec2::is_valid(diff.x, diff.y));
-            visited.insert(diff);
+            let delta = a - b;
+            assert!(IVec2::is_valid(delta.x, delta.y));
+            visited.insert(delta);
         }
     }
 
+    // Allows all valid vec2 diffs
     for x in i8::MIN + 1..=i8::MAX {
         for y in i8::MIN + 1..=i8::MAX {
             assert_eq!(

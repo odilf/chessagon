@@ -22,6 +22,8 @@ use std::{
     fmt, ops,
 };
 
+use crate::piece::movement;
+
 mod tests;
 
 /// A vector in hexagonal coordinates, inside of the hexagonal chessboard.
@@ -220,19 +222,94 @@ impl Vec2 {
 impl IVec2 {
     /// Whether these coordinates are possible in a chesssagon board.
     ///
-    /// A valid [`IVec2`] is the difference between two valid [`Vec2`], where a [valid `Vec2`](Vec2::is_valid)
-    /// has the properties:
+    /// The conditions are:
+    /// - `|dx| <= MAX` and `|dy| <= MAX`
+    /// - `|dx - dy| <= 2 * WIDTH`
+    ///
+    /// ## Derivation
+    ///
+    /// We are given two values, `dx` and `dy`, and we want to verify if these values can be produced as the difference between two [valid `Vec2`s](Vec2::is_valid).
+    ///
+    /// A valid [`Vec2`] has the properties:
     /// - `|x - y| <= WIDTH`
     /// - `x <= MAX` and `y <= MAX`
     ///
-    /// Therefore we need to find out if, for some coordinates `x` and `y` there are two vectors `v1` and `v2`
-    /// such that `v1 - v2 == (x, y)`, or `x1 - x2 == x` and `y1 - y2 == y`.
+    /// We need to find whether there are any set of two vectors `(x1, y1)` and `(x2, y2)` such that they satisfy those conditions, and the extra
+    /// `x1 - x2 == dx` and `y1 - y2 == dy`.
     ///
-    ///  
-    /// For completeness, panics if `x` or `y` is `i8::MIN`.
-    pub const fn is_valid(x: i8, y: i8) -> bool {
-        // TODO: This allows some incorrect values
-        x.abs() <= Vec2::MAX as i8 && y.abs() <= Vec2::MAX as i8
+    /// Throughout the derivation, the operations are going to be done with `x` but they can all be aplied also to `y`
+    ///
+    /// First we start with some rearranging to get `x1` and `x2`:
+    ///
+    /// ```txt
+    ///    x1 - x2 ==  dx
+    /// -> x1      ==  dx + x2
+    /// ->      x2 == -dx + x1
+    /// ```
+    ///
+    /// Now we can apply the [validity conditions](Vec2::is_valid) on `x1` and `x2`.
+    ///
+    /// 1. Condition `x <= MAX`
+    ///
+    /// First, with `x1`
+    /// ```txt
+    ///         x1 <= MAX
+    /// -> dx + x2 <= MAX
+    /// ->      x2 <= MAX - dx
+    /// ```
+    ///
+    /// Since `x2` has to be nonnegative then `0 <= x2 <= MAX - dx` which in turn implies that `dx <= MAX`.
+    ///
+    /// We also have the same condition with `x2`
+    /// ```txt
+    ///          x2 <= MAX
+    /// -> -dx + x1 <= MAX
+    /// ->       x1 <= MAX + dx
+    /// ```
+    ///
+    /// Which implies similarly as before that `-dx <= MAX`.
+    ///
+    /// These two conditions can be merged into the simpler **`|dx| <= MAX`** (and also `|dy| <= MAX` by symmetry of `x` and `y`).
+    ///
+    /// 2. Condition `|x - y| <= WIDTH`
+    ///
+    /// First with `x1` and `y1`:
+    ///
+    /// ```txt
+    ///    |    x1    -     y1   | <= WIDTH
+    /// -> |(dx + x2) - (dy + y2)| <= WIDTH
+    /// -> | dx - dy  +  x2 - y2 | <= WIDTH
+    /// ```
+    ///
+    /// We know, since `v2` should be well-formed, that `|x2 - y2| <= WIDTH` which is equivalent to `-WIDTH <= x2 - y2 <= WIDTH`.
+    ///
+    /// The condition above can also be reformulated to
+    /// ```txt
+    ///
+    ///       |dx - dy + x2 - y2| <= WIDTH
+    /// ->    -WIDTH <= dx - dy + x2 - y2 <= WIDTH
+    /// ->    -WIDTH - (dx - dy) <= x2 - y2 <= WIDTH - (dx - dy)
+    ///
+    /// given -WIDTH <= x2 - y2 <= WIDTH:
+    ///
+    /// -> -WIDTH - (dx - dy) <= x2 - y2 <= WIDTH
+    /// -> -WIDTH - (dx - dy) <= WIDTH
+    /// -> -2 * WIDTH <= dx - dy
+    ///
+    /// and
+    ///
+    /// -> -WIDTH <= x2 - y2 <= WIDTH - (dx - dy)
+    /// -> -WIDTH <= WIDTH - (dx - dy)
+    /// -> dx - dy <= 2 * WIDTH
+    /// ```
+    ///
+    /// These two results can be combined into `-2 * WIDTH <= dx - dy <= 2 * WIDTH` or just **`|dx - dy| <= 2 * WIDTH`**
+    ///
+    /// Doing this with `x2` and `y2` leads to the same result, so we have obtained both conditions for a valid [`IVec2`]!
+    pub const fn is_valid(dx: i8, dy: i8) -> bool {
+        dx.unsigned_abs() <= Vec2::MAX
+            && dy.unsigned_abs() <= Vec2::MAX
+            && dx.abs_diff(dy) <= 2 * Vec2::WIDTH
     }
 
     /// The smallest number of adjacent tiles you have to traverse in order to go from `self`
@@ -269,8 +346,33 @@ impl IVec2 {
 
     /// Iterator over all valid hexagonal coordinate differences.
     pub fn iter() -> impl Iterator<Item = Self> {
-        // TODO: Hella ineficient and also creates duplicates.
-        Vec2::iter().flat_map(|a| Vec2::iter().map(move |b| a - b))
+        (-(Vec2::MAX as i8)..=Vec2::MAX as i8).flat_map(|dx| {
+            // Conditions are:
+            // - `-MAX <= dy <= MAX`
+            // - `-2 * WIDTH <= dx - dy <= 2 * WIDTH`
+            // So:
+            // - `-2 * WIDTH - dx <= -dy <= 2 * WIDTH + dx`
+            // - `-2 * WIDTH - dx <= dy <= 2 * WIDTH + dx`
+            let lower = max(-2 * Vec2::WIDTH as i8 - dx, -(Vec2::MAX as i8));
+            let upper = min(2 * Vec2::WIDTH as i8 + dx, Vec2::MAX as i8);
+
+            (lower..=upper).map(move |dy| IVec2::new_unchecked(dx, dy))
+        })
+    }
+
+    /// Iterator over all possible strides (i.e., values you could get out of
+    /// [`crate::piece::movement::get_stride`]).
+    pub fn strides() -> impl Iterator<Item = Self> {
+        Self::iter().filter_map(|delta| {
+            if delta == IVec2::ZERO {
+                None
+            } else {
+                let (stride, 1) = movement::get_stride(delta) else {
+                    return None;
+                };
+                Some(stride)
+            }
+        })
     }
 }
 
