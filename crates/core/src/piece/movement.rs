@@ -63,6 +63,12 @@ pub fn get_stride(delta: IVec2) -> (IVec2, u8) {
     (delta / gcd as i8, gcd)
 }
 
+/// Check whether there's a blocker of a specific color at that specific coordinate.
+///
+/// This is used mostly to check if the tile the piece is moving towards has a piece of the
+/// same color, which would block it, but if it's a different color it could capture it.
+///
+/// See also [`check_any_blocker`].
 pub fn check_color_blocker(
     position: Vec2,
     board: &Board,
@@ -79,6 +85,12 @@ pub fn check_color_blocker(
     Ok(())
 }
 
+/// Checks if there is a blocker of either color in that specific coordinate.
+///
+/// This is used to check if there's any piece blocking movement in between two tiles
+/// through [`check_blockers`].
+///
+/// See also [`check_color_blocker`].
 pub fn check_any_blocker(position: Vec2, board: &Board) -> Result<(), BlockerError> {
     if let Some((piece, color)) = board.get_either(position) {
         return Err(BlockerError {
@@ -91,6 +103,11 @@ pub fn check_any_blocker(position: Vec2, board: &Board) -> Result<(), BlockerErr
     Ok(())
 }
 
+/// Checks if there are any blockers at any of the strides given by the distance.
+///
+/// Doesn't check for blockers at the final tile (i.e., `origin + distance * stride`).
+///
+/// See also [`check_color_blocker`] and [`check_any_blocker`].
 pub fn check_blockers(
     origin: Vec2,
     stride: IVec2,

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use egui::{Align, Context, FontFamily, Layout, RichText, Ui};
+use egui::{Context, FontFamily, RichText, Ui};
 
 pub fn draw(ui: &mut Ui, ctx: &Context, duration: Duration) {
     let millis = duration.subsec_millis();
