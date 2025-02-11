@@ -13,7 +13,7 @@
 #![doc = include_str!("../diagrams/movement_knight.txt")]
 //! ```
 
-use crate::{Color, IVec2, board::Board, coordinate::Vec2, mov::Move, piece::movement};
+use crate::{Color, IVec2, board::Board, coordinate::Vec2, mov::Move, piece::movement, vec2};
 
 use super::rook;
 
@@ -28,19 +28,16 @@ pub fn valid_delta(delta: IVec2) -> Result<(), MoveError> {
         return Err(MoveError::TooFarAway { distance });
     }
 
-    // Here we're not using `bishop::valid_delta` because this is a cheaper check that makes the
-    // knight movement valid. Namely, it simplifies since it removes the need to check for
-    // movements like `(3, 0)`, which we would have to check separately if we were using
-    // `bishop::is_delta`, since `(3, 0)` is not a bishop movement.
-    //
-    // That also means that the error below can be technically a bit misleading.
-    // TODO: Reflect this in error
-    if (delta.x() + delta.y()) % 3 == 0 {
-        return Err(MoveError::BishopLikeMovement);
-    }
-
     if rook::valid_delta(delta) {
         return Err(MoveError::RookLikeMovement);
+    }
+
+    // Here we're not using `bishop::valid_delta` because this will result in the same thing.
+    // `bishop::valid_delta` checks for same index and for correct stride direction, but the second
+    // check is redundant here because all tiles not filtered out yet that are on the same index also
+    // have a correct stride direction.
+    if (delta.x() + delta.y()) % 3 == 0 {
+        return Err(MoveError::BishopLikeMovement);
     }
 
     Ok(())
@@ -89,10 +86,10 @@ pub enum MoveError {
 /// The tiles where the knights are placed at the start of the game.
 pub fn initial_configuration() -> impl Iterator<Item = (Vec2, Color)> {
     [
-        (Vec2::new_unchecked(0, 2), Color::White),
-        (Vec2::new_unchecked(2, 0), Color::White),
-        (Vec2::new_unchecked(8, 10), Color::Black),
-        (Vec2::new_unchecked(10, 8), Color::Black),
+        (vec2!(0, 2), Color::White),
+        (vec2!(2, 0), Color::White),
+        (vec2!(8, 10), Color::Black),
+        (vec2!(10, 8), Color::Black),
     ]
     .into_iter()
 }

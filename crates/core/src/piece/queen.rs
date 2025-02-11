@@ -4,6 +4,7 @@ use crate::{
     coordinate::Vec2,
     mov::Move,
     piece::{Piece, bishop, rook},
+    vec2,
 };
 
 /// Gets a move from `origin` to `destination` if the movement is queen-like.
@@ -36,9 +37,5 @@ pub struct MoveError {
 }
 
 pub fn initial_configuration() -> impl Iterator<Item = (Vec2, Color)> {
-    [
-        (Vec2::new_unchecked(1, 0), Color::White),
-        (Vec2::new_unchecked(10, 9), Color::Black),
-    ]
-    .into_iter()
+    [(vec2!(1, 0), Color::White), (vec2!(10, 9), Color::Black)].into_iter()
 }

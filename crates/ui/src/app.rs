@@ -1,7 +1,6 @@
-use std::{fmt, sync::mpsc};
+use std::fmt;
 
-use chessagon_engine::{Engine, models::Anthony};
-use egui::{Align, FontData, FontDefinitions, FontFamily, Label, Layout, vec2};
+use egui::{Align, FontData, FontDefinitions, FontFamily, Layout};
 use egui_notify::Toasts;
 
 use crate::{

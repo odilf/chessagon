@@ -104,13 +104,13 @@ impl Vec2 {
     /// Iterator over all valid hexagonal coordinates
     pub fn iter() -> impl Iterator<Item = Self> {
         (0_u8..=Self::MAX).flat_map(|x| {
-            (0..=Self::MAX).filter_map(move |y| {
-                if x.abs_diff(y) > Self::WIDTH {
-                    return None;
-                }
+            // There are two conditions for `y`:
+            // 1. `0 <= y <= Self::MAX`
+            // 2. `|x - y| <= Self::WIDTH`
 
-                Some(Self::new_unchecked(x, y))
-            })
+            let lower = x.saturating_sub(Self::WIDTH);
+            let upper = (x + Self::WIDTH).min(Self::MAX);
+            (lower..=upper).map(move |y| Self::new_unchecked(x, y))
         })
     }
 
@@ -265,6 +265,12 @@ impl IVec2 {
             // Alternative: `self.x.abs() as u8 + self.y.abs() as u8`.
             self.x.abs_diff(self.y)
         }
+    }
+
+    /// Iterator over all valid hexagonal coordinate differences.
+    pub fn iter() -> impl Iterator<Item = Self> {
+        // TODO: Hella ineficient and also creates duplicates.
+        Vec2::iter().flat_map(|a| Vec2::iter().map(move |b| a - b))
     }
 }
 

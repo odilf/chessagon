@@ -32,5 +32,8 @@ pub const MIN_VALID_RANK_COORDINATES: &str = include_str!("./min_valid_rank_coor
 pub const INDICES: &str = include_str!("./indices.txt");
 #[allow(missing_docs)]
 pub const INITIAL_BOARD: &str = include_str!("./initial_board.txt");
+
 #[allow(missing_docs)]
 pub const MOVEMENT_KNIGHT: &str = include_str!("./movement_knight.txt");
+#[allow(missing_docs)]
+pub const MOVEMENT_BISHOP: &str = include_str!("./movement_bishop.txt");

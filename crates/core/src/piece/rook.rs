@@ -1,4 +1,6 @@
-use crate::{Color, IVec2, board::Board, coordinate::Vec2, ivec2, mov::Move, piece::movement};
+use crate::{
+    Color, IVec2, board::Board, coordinate::Vec2, ivec2, mov::Move, piece::movement, vec2,
+};
 
 pub const fn strides() -> [IVec2; 6] {
     [
@@ -64,10 +66,10 @@ pub enum MoveError {
 
 pub fn initial_configuration() -> impl Iterator<Item = (Vec2, Color)> {
     [
-        (Vec2::new_unchecked(0, 3), Color::White),
-        (Vec2::new_unchecked(3, 0), Color::White),
-        (Vec2::new_unchecked(7, 10), Color::Black),
-        (Vec2::new_unchecked(10, 7), Color::Black),
+        (vec2!(0, 3), Color::White),
+        (vec2!(3, 0), Color::White),
+        (vec2!(7, 10), Color::Black),
+        (vec2!(10, 7), Color::Black),
     ]
     .into_iter()
 }

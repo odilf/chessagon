@@ -1,4 +1,4 @@
-use crate::{Color, IVec2, board::Board, coordinate::Vec2, mov::Move, piece::movement};
+use crate::{Color, IVec2, board::Board, coordinate::Vec2, mov::Move, piece::movement, vec2};
 
 // /// Gets the stride of a pawn given the color and the optional direction of the capture.
 // pub const fn stride(color: Color, capture_direction: Option<Side>) -> IVec2 {
@@ -94,15 +94,15 @@ pub enum MoveError {
 
 pub const fn initial_white_tiles() -> [Vec2; 9] {
     [
-        Vec2::new_unchecked(4, 0),
-        Vec2::new_unchecked(4, 1),
-        Vec2::new_unchecked(4, 2),
-        Vec2::new_unchecked(4, 3),
-        Vec2::new_unchecked(4, 4),
-        Vec2::new_unchecked(3, 4),
-        Vec2::new_unchecked(2, 4),
-        Vec2::new_unchecked(1, 4),
-        Vec2::new_unchecked(0, 4),
+        vec2!(4, 0),
+        vec2!(4, 1),
+        vec2!(4, 2),
+        vec2!(4, 3),
+        vec2!(4, 4),
+        vec2!(3, 4),
+        vec2!(2, 4),
+        vec2!(1, 4),
+        vec2!(0, 4),
     ]
 }
 

@@ -7,7 +7,7 @@ pub mod gpu {
 }
 
 use bytemuck::{Pod, Zeroable};
-use chessagon_core::{Board, Color, Move, Vec2, game::Action};
+use chessagon_core::{Board, Color, Move, Vec2};
 use eframe::egui_wgpu;
 use egui::{Rect, vec2};
 use egui_notify::Toasts;
@@ -140,7 +140,7 @@ impl GuiBoard {
             .collect();
     }
 
-    pub fn deselect(&mut self, position: Vec2, color: Color) {
+    pub fn deselect(&mut self) {
         self.selected_tile = None;
         self.highlighted_tiles = Vec::new();
     }
@@ -178,15 +178,16 @@ impl GuiBoard {
                     } else if let Some(origin) = self.selected_tile {
                         match board.get_move(origin, position, color) {
                             Ok((m, _meta)) => {
-                                self.deselect(position, color);
+                                self.deselect();
                                 mov = Some(m);
                             }
                             Err(err) => {
                                 toasts.warning(err.to_string());
+                                self.deselect();
                             }
                         };
                     } else {
-                        self.deselect(position, color);
+                        self.deselect();
                     }
                 }
             }

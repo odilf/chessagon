@@ -71,6 +71,7 @@ pub struct ColorSchemeRgba {
 }
 
 impl ColorScheme {
+    // TODO: The fact this is needed is kind of dodgy.
     pub(crate) fn into_gamma_rgba(self) -> ColorSchemeRgba {
         fn from(hsva: HsvaGamma) -> Rgba {
             let rgba = Rgba::from(hsva);
