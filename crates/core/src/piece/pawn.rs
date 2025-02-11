@@ -126,9 +126,10 @@ pub const fn is_initial_black_tile(position: Vec2) -> bool {
 }
 
 pub fn is_intial_tile(position: Vec2, color: Color) -> bool {
-    let m = max_coordinate_of_initial_position(color);
-    (position.x() == m && color.compare_towards(position.y(), m).is_ge())
-        || (color.compare_towards(position.x(), m).is_ge() && position.y() == m)
+    match color {
+        Color::White => is_initial_white_tile(position),
+        Color::Black => is_initial_black_tile(position),
+    }
 }
 
 pub fn initial_position_of_file(file: u8, color: Color) -> Option<Vec2> {
