@@ -31,16 +31,20 @@ pub struct StrideLengthError {
 ///
 /// In other words, it finds the smallest vector that can divide `delta`.
 ///
+/// # Panics
+///
+/// If `delta` is [`IVec2::ZERO`].
+///
 /// # Examples
 ///
 /// ```rust
 /// use chessagon_core::{ivec2, piece::movement::get_stride};
 ///
-/// let delta = ivec2!(-8, 4);
+/// let delta = ivec2!(-6, 3);
 /// let (stride, length) = get_stride(delta);
 ///
 /// assert_eq!(stride, ivec2!(-2, 1));
-/// assert_eq!(length, 4);
+/// assert_eq!(length, 3);
 ///
 /// // True for all arguments
 /// assert_eq!(stride * length as i8, delta);

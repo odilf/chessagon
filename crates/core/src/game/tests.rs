@@ -22,6 +22,5 @@ fn fn_move_duration_returns_move_duration_for_moves_0_to_3() {
     game.apply_action(action, Color::White).unwrap();
 
     assert_eq!(game.move_duration(1), Some(Duration::ZERO));
-    dbg!(game.move_duration(2));
     assert!(game.move_duration(2).unwrap() - move_duration <= Duration::from_millis(5));
 }

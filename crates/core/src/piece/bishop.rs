@@ -130,7 +130,8 @@ mod tests {
 
     #[test]
     fn fn_valid_stride_matches_strides_from_valid_strides_enumeration() {
-        panic!("todo");
-        // IVec2::iter().all(|delta| )
+        for stride in IVec2::strides() {
+            assert_eq!(valid_stride(stride), strides().contains(&stride));
+        }
     }
 }

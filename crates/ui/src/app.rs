@@ -55,7 +55,6 @@ impl App {
 
         cc.egui_ctx.set_visuals(egui::Visuals {
             menu_corner_radius: egui::CornerRadius::same(0),
-            // panel_fill: dbg!(color_scheme.background.into()),
             panel_fill: color_scheme_rgb.background.into(),
             ..Default::default()
         });

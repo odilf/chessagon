@@ -22,7 +22,6 @@ use super::rook;
 /// Knight strides are valid if they're one of the smallest strides that are neither a rook nor a bishop
 /// stride.
 pub fn valid_delta(delta: IVec2) -> Result<(), MoveError> {
-    // let distance = delta.x().abs().max(delta.y().abs()) as u8;
     let distance = delta.length();
     if distance > 3 {
         return Err(MoveError::TooFarAway { distance });
