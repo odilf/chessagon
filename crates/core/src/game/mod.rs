@@ -124,11 +124,13 @@ impl Game {
         }
 
         let (_, start) = self.moves.get(i - 1)?;
-        let end = self
-            .moves
-            .get(i)
-            .map(|(_, end)| *end)
-            .unwrap_or_else(|| Timestamp::now());
+        let end = self.moves.get(i).map(|(_, end)| *end).or_else(|| {
+            if let Some(result) = self.result() {
+                result.time_of_end()
+            } else {
+                Some(Timestamp::now())
+            }
+        })?;
 
         Some(end.duration_since(*start).unsigned_abs())
     }
@@ -138,7 +140,8 @@ impl Game {
     /// Returns [`Duration::ZERO`] if the player has ran out of time.
     // TODO: This keeps the timer running after resignations.
     pub fn time_remaining(&self, color: Color) -> Duration {
-        let mut i = color as usize;
+        // + 2 since first two moves always take 0 time.
+        let mut i = color as usize + 2;
         let mut time_remaining = self.time_control.base_time[color];
         while let Some(move_duration) = self.move_duration(i) {
             // This is in two separate lines because otherwise you get an underflow error if `move_duration` is greater than increment.
@@ -146,7 +149,10 @@ impl Game {
                 return Duration::ZERO;
             }
             time_remaining -= move_duration;
-            time_remaining += self.time_control.increment[color];
+            // Only add increment if the move has been played.
+            if i < self.moves.len() {
+                time_remaining += self.time_control.increment[color];
+            }
             i += 2;
         }
 
@@ -177,7 +183,9 @@ impl Game {
     pub fn resign(&mut self, color: Color) {
         self.result = Some(GameResult::Win {
             winner: color.other(),
-            reason: WinReason::Resignation,
+            reason: WinReason::Resignation {
+                timestamp: Timestamp::now(),
+            },
         });
     }
 
@@ -255,7 +263,10 @@ impl Game {
         }
 
         self.result = Some(GameResult::Draw {
-            reason: DrawReason::Agreement { offered_by },
+            reason: DrawReason::Agreement {
+                offered_by,
+                timestamp: Timestamp::now(),
+            },
         });
 
         Ok(())
@@ -280,6 +291,24 @@ pub enum GameResult {
     Draw { reason: DrawReason },
 }
 
+impl GameResult {
+    /// The moment the game ended.
+    pub fn time_of_end(&self) -> Option<Timestamp> {
+        match *self {
+            GameResult::Win { reason, .. } => match reason {
+                WinReason::Checkmate => None,
+                WinReason::Resignation { timestamp } => Some(timestamp),
+                WinReason::Timeout { timestamp } => Some(timestamp),
+            },
+            GameResult::Draw { reason } => match reason {
+                DrawReason::Stalemate => None,
+                DrawReason::FiftyMoves => None,
+                DrawReason::Agreement { timestamp, .. } => Some(timestamp),
+            },
+        }
+    }
+}
+
 /// The way the player won a game.
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -289,9 +318,15 @@ pub enum WinReason {
     /// If the king wasn't in check, it would be a [`DrawReason::Stalemate`]
     Checkmate,
     /// The opponent [resigned](`Action::Resign`).
-    Resignation,
+    Resignation {
+        /// The moment that the player resigned.
+        timestamp: Timestamp,
+    },
     /// The opponent ran out of time.
-    Timeout,
+    Timeout {
+        /// The moment the player ran out of time.
+        timestamp: Timestamp,
+    },
 }
 
 /// The way a game resulted in a draw.
@@ -308,6 +343,8 @@ pub enum DrawReason {
     Agreement {
         /// The color of the player that offerred a draw.
         offered_by: Color,
+        /// The moment both players agreed to a draw.
+        timestamp: Timestamp,
     },
 }
 
