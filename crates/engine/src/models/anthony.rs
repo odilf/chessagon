@@ -72,10 +72,7 @@ impl Engine for Anthony {
     fn get_action(&mut self, game: &Game) -> Action {
         let (Some(mov), _score) = self.search_move(game.board(), self.color, Self::SEARCH_DEPTH)
         else {
-            panic!(
-                "Didn't find a single move? board state is \n{}",
-                game.board()
-            );
+            unreachable!("If no moves are left, game should have been considered finished before.");
         };
 
         self.played_moves.insert(mov);

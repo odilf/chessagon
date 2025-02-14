@@ -1,6 +1,6 @@
 use std::fmt;
 
-use egui::{Align, FontData, FontDefinitions, FontFamily, Layout};
+use egui::{Align, Layout};
 use egui_notify::Toasts;
 
 use crate::{
@@ -24,7 +24,7 @@ pub struct App<GS = GameScreen> {
     toasts: egui_notify::Toasts,
 }
 
-type AppDisconnected = App<GameScreenDisconnected>;
+type AppUninit = App<GameScreenDisconnected>;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum Screen {
@@ -34,8 +34,14 @@ pub enum Screen {
     Game,
 }
 
-impl AppDisconnected {
-    fn connect(self) -> App {
+impl AppUninit {
+    fn init(self, cc: &eframe::CreationContext<'_>) -> App {
+        // To load svgs
+        egui_extras::install_image_loaders(&cc.egui_ctx);
+
+        // TODO: Maybe this should be passed by reference.
+        App::set_style(cc, self.color_scheme);
+
         App {
             game_screen: self.game_screen.map(|gs| gs.connect()),
 
@@ -48,13 +54,38 @@ impl AppDisconnected {
 }
 
 impl App {
+    /// Called once before the first frame.
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        // Load previous app state.
+        if let Some(storage) = cc.storage {
+            crate::board::gpu::prepare(cc.wgpu_render_state.as_ref().unwrap());
+
+            let app: AppUninit = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+
+            tracing::info!("Loaded app state from storage.");
+            tracing::debug!("Loaded app state is {app:?}");
+
+            return app.init(cc);
+        }
+
+        AppUninit {
+            screen: Screen::default(),
+            color_scheme: ColorScheme::purple(),
+            game_screen: None,
+            main_menu_screen: MainMenu::default(),
+            toasts: Toasts::new(),
+        }
+        .init(cc)
+    }
+
     /// Sets the style for the app.
     fn set_style(cc: &eframe::CreationContext<'_>, color_scheme: ColorScheme) {
-        // TODO: There's probably more to customize
+        use egui::{CornerRadius, FontData, FontDefinitions, FontFamily, Visuals};
+
         let color_scheme_rgb = ColorSchemeRgba::from(color_scheme);
 
-        cc.egui_ctx.set_visuals(egui::Visuals {
-            menu_corner_radius: egui::CornerRadius::same(0),
+        cc.egui_ctx.set_visuals(Visuals {
+            menu_corner_radius: CornerRadius::same(0),
             panel_fill: color_scheme_rgb.background.into(),
             ..Default::default()
         });
@@ -88,36 +119,6 @@ impl App {
 
             fonts
         });
-    }
-
-    /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        // To load svgs
-        egui_extras::install_image_loaders(&cc.egui_ctx);
-
-        let color_scheme = ColorScheme::purple();
-        Self::set_style(cc, color_scheme);
-
-        // Load previous app state.
-        if let Some(storage) = cc.storage {
-            crate::board::gpu::prepare(cc.wgpu_render_state.as_ref().unwrap());
-
-            let app: AppDisconnected =
-                eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
-
-            tracing::info!("Loaded app state from storage.");
-            tracing::debug!("State is {app:?}");
-
-            return app.connect();
-        }
-
-        Self {
-            screen: Screen::default(),
-            color_scheme,
-            game_screen: None,
-            main_menu_screen: MainMenu::default(),
-            toasts: Toasts::new(),
-        }
     }
 }
 

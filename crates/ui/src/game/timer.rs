@@ -9,15 +9,19 @@ pub fn draw(ui: &mut Ui, ctx: &Context, duration: Duration) {
 
     let main = RichText::new(format!("{mins:0>2}:{secs:0>2}"))
         .size(32.0)
+        .strong()
         .family(FontFamily::Monospace);
 
-    let extra = RichText::new(format!(":{millis:0>3}"))
+    let extra = RichText::new(format!("{millis:0>3}"))
         .size(16.0)
+        .strong()
         .family(FontFamily::Monospace);
 
     ui.horizontal(|ui| {
         ui.label(main);
-        ui.label(extra);
+        if duration.as_secs() < 20 {
+            ui.label(extra);
+        }
     });
 
     // TODO: Request repaints only after refresh rate of timer.
