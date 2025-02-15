@@ -6,7 +6,7 @@ use chessagon_core::{
     game::{Action, TimeControl},
 };
 use chessagon_engine::{Engine as _, models::Anthony};
-use egui::{Align, Button, Color32, Context, Layout, Margin, RichText, Spacing, Ui, Vec2, vec2};
+use egui::{Align, Button, Context, Layout, Margin, RichText, Spacing, Ui, Vec2, vec2};
 use egui_notify::Toasts;
 
 mod timer;
@@ -96,10 +96,13 @@ impl GameScreenDisconnected {
     }
 
     pub fn new(frame: &mut eframe::Frame) -> Option<GameScreen> {
+        let game = Game::new(TimeControl::rapid());
+        let gui_board = GuiBoard::new(frame, game.board())?;
+
         let disconnected = GameScreenDisconnected {
             color: Color::White,
-            game: Game::new(TimeControl::rapid()),
-            gui_board: GuiBoard::new(frame)?,
+            game,
+            gui_board,
             action_sender: (),
             opponent_action_receiver: (),
         };
@@ -117,11 +120,13 @@ impl GameScreen {
     ) -> Option<GameScreenEvent> {
         match self.opponent_action_receiver.try_recv() {
             Ok(action) => {
-                tracing::info!("got action {action:?} from opponent");
+                tracing::debug!("got action {action:?} from opponent");
                 // TODO: Should we somehow handle invalid actions?
                 self.game
                     .apply_action(action, self.color.other())
                     .expect("Action received from opponent should be valid.");
+
+                self.gui_board.update(self.game.board(), self.color, ctx);
             }
             Err(TryRecvError::Empty) => (),
             Err(TryRecvError::Disconnected) => {}
@@ -158,8 +163,6 @@ impl GameScreen {
             }
 
             ui.allocate_space(vec2(padding, ui.available_height()));
-
-            // if self.game.turn() == self.color.other() {}
         });
 
         event
@@ -246,21 +249,6 @@ impl GameScreen {
             },
         );
 
-        // if ui.button("resign").clicked() {
-        //     self.game.resign(self.color);
-        // }
-
-        // match self.game.draw_offer() {
-        //     None => ui.button("Offer draw"),
-        //     Some(c) if c == self.color.other() => ui.button("Accept draw"),
-        //     Some(_) => {
-        //         ui.add_enabled_ui(false, |ui| ui.button("Can't offer draw"))
-        //             .response
-        //     }
-        // };
-
-        // timer::draw(ui, ctx, self.game.time_remaining(self.color));
-
         event
     }
 
@@ -273,6 +261,7 @@ impl GameScreen {
         // TODO: Handle sending error more gracefully
         self.action_sender
             .send(action)
+            .map_err(|err| tracing::error!(?err))
             .expect("TODO: Handle sending errors");
 
         self.game
