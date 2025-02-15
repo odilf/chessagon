@@ -219,14 +219,16 @@ impl Game {
     ///
     /// Returns an [`ApplyActionError`] if the specified move is not possible.
     pub fn apply_action(&mut self, action: Action, color: Color) -> Result<(), ApplyActionError> {
-        if color != self.turn() {
-            return Err(ApplyActionError::NotYourTurn);
-        }
         match action {
             Action::Move(mov) => {
+                if color != self.turn() {
+                    return Err(ApplyActionError::NotYourTurn);
+                }
+
                 if self.is_finished() {
                     return Err(ApplyActionError::GameIsFinished);
                 }
+
                 let now = Timestamp::now();
                 self.moves.push((mov, now));
                 self.board.apply_move(mov, color)?;
