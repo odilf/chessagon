@@ -73,7 +73,7 @@ pub enum Side {
 
 impl Side {
     #[inline]
-    pub fn choose<T>(self, king: T, queen: T) -> T {
+    pub const fn choose<T: Copy>(self, king: T, queen: T) -> T {
         match self {
             Self::King => king,
             Self::Queen => queen,

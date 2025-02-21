@@ -111,10 +111,7 @@ pub fn initial_black_tiles() -> [Vec2; 9] {
 }
 
 pub const fn max_coordinate_of_initial_position(color: Color) -> u8 {
-    match color {
-        Color::White => 4,
-        Color::Black => 6,
-    }
+    color.choose(4, 6)
 }
 
 pub const fn is_initial_white_tile(position: Vec2) -> bool {
