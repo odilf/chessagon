@@ -24,7 +24,7 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
     eframe::run_native(
-        "Chessagon",
+        "chessagon",
         native_options,
         Box::new(|cc| Ok(Box::new(chessagon_ui::App::new(cc)))),
     )

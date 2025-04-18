@@ -40,18 +40,20 @@ fn fs_main(in: VertexOut) -> @location(0) vec4f {
         return uniforms.color_scheme.background;
     }
 
+    let index = (position.x + position.y) % 3;
+    out = uniforms.color_scheme.tiles[index];
 
     let flags = get_flags(position);
     if (flags & SELECTED) != 0 {
-        return uniforms.color_scheme.selected;
+        let alpha = uniforms.color_scheme.selected.w;
+        return uniforms.color_scheme.selected * alpha + out * (1.0 - alpha);
+        // return uniforms.color_scheme.selected;
     }
 
     if (flags & HIGHLIGHTED) != 0 {
-        return uniforms.color_scheme.highlighted;
-    }
-    
-    let index = (position.x + position.y) % 3;
-    out = uniforms.color_scheme.tiles[index];
+        let alpha = uniforms.color_scheme.highlighted.w;
+        return uniforms.color_scheme.highlighted * alpha + out * (1.0 - alpha);
+    }    
 
     return out;
 }

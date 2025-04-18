@@ -47,7 +47,7 @@ pub fn prepare(wgpu_render_state: &RenderState) {
         },
         fragment: Some(wgpu::FragmentState {
             module: &shader,
-            entry_point: Some("fs_main"),
+            entry_point: None,
             targets: &[Some(wgpu_render_state.target_format.into())],
             compilation_options: wgpu::PipelineCompilationOptions::default(),
         }),

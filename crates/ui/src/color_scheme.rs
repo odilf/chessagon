@@ -40,16 +40,18 @@ impl ColorScheme {
                 a: 1.0,
             },
             selected_tile: HsvaGamma {
-                h: 0.6,
-                s: 0.6,
+                h: 0.70,
+                s: 0.9,
                 v: 0.5,
-                a: 1.0,
+                a: 0.8,
             },
             highlighted_tile: HsvaGamma {
-                h: 0.85,
-                s: 0.8,
-                v: 0.7,
-                a: 1.0,
+                // h: 0.99,
+                h: 0.75,
+                s: 0.9,
+                v: 0.4,
+                // v: 0.5,
+                a: 0.6,
             },
         }
     }
@@ -73,13 +75,18 @@ pub struct ColorSchemeRgba {
 impl ColorScheme {
     // TODO: The fact this is needed is kind of dodgy.
     pub(crate) fn into_gamma_rgba(self) -> ColorSchemeRgba {
-        fn from(hsva: HsvaGamma) -> Rgba {
+        fn from(mut hsva: HsvaGamma) -> Rgba {
+            // TODO: This is extremely dodgy. I'm basically "taking away" the alpha for the conversions
+            // and then putting it back in, but I'm sure this is somehow somewhat wrong, right?
+            let alpha = hsva.a;
+            hsva.a = 1.0;
+
             let rgba = Rgba::from(hsva);
             Rgba::from_rgba_premultiplied(
                 ecolor::gamma_from_linear(rgba.r()),
                 ecolor::gamma_from_linear(rgba.g()),
                 ecolor::gamma_from_linear(rgba.b()),
-                ecolor::gamma_from_linear(rgba.a()),
+                alpha,
             )
         }
 

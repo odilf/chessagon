@@ -1,5 +1,6 @@
 [workspace]
 members = ["crates/core", "crates/engine", "crates/ui"]
+resolver = "3"
 
 [workspace.dependencies]
 thiserror = "2.0.8"
@@ -9,7 +10,7 @@ pretty_assertions = "1.4.1"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 bytemuck = "1.21.0"
-serde = { version = "1", features = ["derive"]} 
+serde = { version = "1", features = ["derive"] } 
 serde_nested_with = "0.2.5"
 serde_arrays = "0.1.0"
 static_assertions = "1.1.0"
@@ -23,17 +24,17 @@ missing_safety_doc = "deny"
 undocumented_unsafe_blocks = "deny"
 all = "warn"
 
-[package]
-name = "chessagon"
-version = "0.1.0"
-edition = "2024"
+# [package]
+# name = "chessagon"
+# version = "0.1.0"
+# edition = "2024"
 
-[lints]
-workspace = true
+# [lints]
+# workspace = true
 
-[dependencies]
-chessagon-core = { path = "crates/core" }
-static_assertions.workspace = true
+# [dependencies]
+# chessagon-core = { path = "crates/core" }
+# static_assertions.workspace = true
 
 [profile.release]
 opt-level = 2 # fast and small wasm
