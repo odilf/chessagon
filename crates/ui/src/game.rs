@@ -1,6 +1,6 @@
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 
-use crate::GuiBoard;
+use crate::{GuiBoard, components};
 use chessagon_core::{
     Color, Game,
     game::{Action, TimeControl},
@@ -199,7 +199,7 @@ impl GameScreen {
             let mut button = |text, always_enabled| {
                 ui.add_enabled(
                     in_progress || always_enabled,
-                    Button::new(RichText::new(text).size(12.0)).corner_radius(0),
+                    components::button(RichText::new(text).size(12.0)),
                 )
             };
 

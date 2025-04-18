@@ -47,7 +47,7 @@ impl ColorScheme {
             },
             highlighted_tile: HsvaGamma {
                 // h: 0.99,
-                h: 0.75,
+                h: 0.85,
                 s: 0.9,
                 v: 0.4,
                 // v: 0.5,

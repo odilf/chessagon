@@ -1,6 +1,7 @@
-use egui::{Align, FontFamily, Label, Layout, RichText, vec2};
+use eframe::wgpu::CompilationInfo;
+use egui::{Align, FontFamily, Label, Layout, RichText, Vec2, vec2};
 
-use crate::app::Screen;
+use crate::{app::Screen, components};
 
 #[derive(Debug, Default)]
 pub struct MainMenu {
@@ -24,9 +25,19 @@ impl MainMenu {
             |ui| ui.add(label),
         );
 
-        if ui.button("Play against computer").clicked() {
+        ui.spacing_mut().button_padding = Vec2::splat(12.0);
+        if ui
+            .add(components::button(
+                RichText::new("Play against computer").size(16.0).strong(),
+            ))
+            .clicked()
+        {
             return Some(Screen::Game);
         }
+
+        ui.spacing_mut().button_padding = Vec2::splat(8.0);
+        ui.add(components::button("Options"));
+        ui.add(components::button("How to play"));
 
         None
     }

@@ -1,5 +1,6 @@
 mod app;
 mod board;
+mod components;
 mod game;
 mod main_menu;
 

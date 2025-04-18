@@ -1,11 +1,12 @@
 use std::fmt;
 
-use egui::{Align, Layout};
+use egui::{Align, FontFamily, Layout, RichText, Vec2};
 use egui_notify::Toasts;
 
 use crate::{
     ColorScheme,
     color_scheme::ColorSchemeRgba,
+    components,
     game::{GameScreen, GameScreenDisconnected, GameScreenEvent},
     main_menu::MainMenu,
 };
@@ -159,23 +160,22 @@ impl eframe::App for App {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
             egui::menu::bar(ui, |ui| {
-                // NOTE: no File -> Quit on web pages
-                let is_web = cfg!(target_arch = "wasm32");
-                if !is_web {
-                    ui.menu_button("File", |ui| {
-                        if ui.button("Quit").clicked() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                        }
-                    });
-                    ui.add_space(16.0);
-                }
+                ui.spacing_mut().button_padding = Vec2::new(12.0, 4.0);
+                ui.spacing_mut().item_spacing = Vec2::splat(3.0);
 
                 for (text, screen) in [
                     ("Main menu", Screen::MainMenu),
                     ("Game", Screen::Game),
                     ("Options", Screen::Options),
                 ] {
-                    let menu_button = ui.button(text);
+                    let menu_button = ui.add(components::button(
+                        RichText::new(text)
+                            .font(egui::FontId {
+                                size: 14.0,
+                                family: FontFamily::Proportional,
+                            })
+                            .strong(),
+                    ));
                     if self.screen == screen {
                         menu_button.highlight();
                     } else if menu_button.clicked() {
