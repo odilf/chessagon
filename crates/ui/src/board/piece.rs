@@ -1,7 +1,5 @@
-use std::cmp::Reverse;
-
 use chessagon_core::{Board, Color, Vec2, piece::Piece};
-use egui::{Image, Pos2, vec2};
+use egui::{Image, Pos2};
 
 use super::hex_to_uv;
 

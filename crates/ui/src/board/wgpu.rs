@@ -24,7 +24,7 @@ pub fn prepare(wgpu_render_state: &RenderState) {
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Uniform,
                 has_dynamic_offset: false,
-                min_binding_size: NonZeroU64::new(464),
+                min_binding_size: NonZeroU64::new(480),
             },
             count: None,
         }],

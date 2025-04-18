@@ -12,6 +12,10 @@ struct Uniforms {
     // would align but wouldn't have correct stride. So we need to use
     // `vec4u`s for the stride
     tile_flags: array<vec4u, 23>,
+    time_since_last_click: f32,
+    _padding1: f32,
+    _padding2: f32,
+    _padding3: f32,
 };
 
 struct ColorScheme {
@@ -51,7 +55,14 @@ fn fs_main(in: VertexOut) -> @location(0) vec4f {
     }
 
     if (flags & HIGHLIGHTED) != 0 {
-        let alpha = uniforms.color_scheme.highlighted.w;
+        let selected = get_selected_tile();
+        let d = f32(abs(i32(selected.x - position.x))) + f32(abs(i32(selected.y - position.y)));
+        // Fade takes 0.5 to complete
+        // TODO: Move this parameter and also the sqrt out to board config.
+        let fade_length = 0.1 * sqrt(d);
+        let t = min(1.0, uniforms.time_since_last_click / fade_length);
+        var alpha = uniforms.color_scheme.highlighted.w * t;
+
         return uniforms.color_scheme.highlighted * alpha + out * (1.0 - alpha);
     }    
 
@@ -76,7 +87,6 @@ const STEP_SIZE: vec2f = vec2f(
     1.0
 ) * 2.0 / f32(MAX_RANK / 2 + 1); // Board takes up more space vertically, so we need to adjust based on the number of ranks.
 const OFFSET: vec2f = STEP_SIZE / 2.0;
-
 
 /// Returns the nearest center of a grid centered on `grid_center`
 //
@@ -149,11 +159,34 @@ fn index(position: vec2u) -> u32 {
 }
 
 fn get_flags(position: vec2u) -> u32 {
-    let actual_index = index(position);
-    let array_index = actual_index / 4;
-    let vec_index = actual_index % 4;
-    // return uniforms.tile_flags[array_index][vec_index];
+    return get_flags_from_index(index(position));
+}
+
+fn get_flags_from_index(index: u32) -> u32 {
+    let array_index = index / 4;
+    let vec_index = index % 4;
     return uniforms.tile_flags[array_index][vec_index];
+}
+
+/// Returns the hexagonal coordinates of the selected tile.
+fn get_selected_tile() -> vec2u {
+    // return vec2u(0, 0);
+    for (var x = 0u; x <= MAX; x += 1) {
+        for (var y = 0u; y <= MAX; y += 1) {
+            let position = vec2u(x, y);
+            if !is_valid_position(position) {
+                continue;
+            }
+
+            let flags = get_flags(position);
+            if (flags & SELECTED) != 0 {
+                return position;
+            }
+        }
+    }
+
+    // TODO: Can I return null or unreachable or something?
+    return vec2u(1293012398, 12931029);
 }
 
 /// Vertex shader, just makes a square.

@@ -116,7 +116,7 @@ impl GameScreen {
         &mut self,
         ui: &mut Ui,
         ctx: &Context,
-        toasts: &mut Toasts,
+        _toasts: &mut Toasts,
     ) -> Option<GameScreenEvent> {
         match self.opponent_action_receiver.try_recv() {
             Ok(action) => {

@@ -6,6 +6,8 @@ pub mod gpu {
     pub use super::wgpu::prepare;
 }
 
+use std::time::SystemTime;
+
 use bytemuck::{Pod, Zeroable};
 use chessagon_core::{Board, Color, Move, Vec2};
 use eframe::egui_wgpu;
@@ -30,6 +32,9 @@ pub struct GuiBoard {
     /// How fast do pieces move towards cursor when dragging.
     piece_drag_speed: f32,
 
+    /// The time the last click happened, used for passing in to uniforms, for gpu animations.
+    last_click_time: SystemTime,
+
     // To check whether keydown is click or hold.
     #[serde(skip)]
     pointer_pressed_last_frame: bool,
@@ -46,6 +51,7 @@ impl Default for GuiBoard {
             pieces: Vec::new(),
             piece_move_speed: 0.2,
             piece_drag_speed: 0.8,
+            last_click_time: SystemTime::now(),
             pointer_pressed_last_frame: false,
             uniforms: Uniforms::default(),
         }
@@ -61,10 +67,7 @@ impl GuiBoard {
         wgpu::prepare(wgpu_render_state);
 
         Some(Self {
-            uniforms: Uniforms {
-                color_scheme: ColorScheme::default().into(),
-                tile_flags: <[TileFlags; 92]>::zeroed(),
-            },
+            uniforms: Uniforms::default(),
             pieces: GuiPiece::from_board(board).collect(),
             ..Default::default()
         })
@@ -175,6 +178,8 @@ impl GuiBoard {
             .filter(|mov| mov.origin() == position)
             .map(|mov| mov.destination())
             .collect();
+
+        self.last_click_time = SystemTime::now();
     }
 
     pub fn deselect(&mut self) {
@@ -267,6 +272,11 @@ impl GuiBoard {
         // TODO: Get this from configuration
         self.uniforms.color_scheme = ColorScheme::purple().into_gamma_rgba();
 
+        self.uniforms.time_since_last_click = SystemTime::now()
+            .duration_since(self.last_click_time)
+            .expect("`last_clicked_time` should be before now.")
+            .as_secs_f32();
+
         ui.painter().add(egui_wgpu::Callback::new_paint_callback(
             rect,
             CustomBoardCallback {
@@ -312,6 +322,8 @@ struct Uniforms {
     // on every draw.
     color_scheme: ColorSchemeRgba,
     tile_flags: [TileFlags; 92],
+    time_since_last_click: f32,
+    _padding: [f32; 3],
 }
 
 impl Default for Uniforms {
@@ -319,6 +331,8 @@ impl Default for Uniforms {
         Self {
             color_scheme: ColorScheme::default().into(),
             tile_flags: <[TileFlags; 92]>::zeroed(),
+            time_since_last_click: 0.0,
+            _padding: <[f32; 3]>::zeroed(),
         }
     }
 }
