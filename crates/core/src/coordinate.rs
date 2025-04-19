@@ -65,7 +65,7 @@ macro_rules! ivec2 {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-/// Chessagon specific implementations
+// Chessagon specific implementations
 ///////////////////////////////////////////////////////////////////////////////
 
 impl Vec2 {
@@ -335,7 +335,7 @@ impl IVec2 {
         // `u + v`) would be the max of the two coordinates.
 
         if self.x.signum() == self.y.signum() {
-            max(self.x.abs() as u8, self.y.abs() as u8)
+            max(self.x.unsigned_abs(), self.y.unsigned_abs())
         } else {
             // Since `x` and `y` have different signs in this case, we might aswell take the absolute difference?
             // I feel this may be faster, but I feel even more that this is not going to even be measurable.
@@ -377,7 +377,7 @@ impl IVec2 {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-/// Math and operations
+// Math and operations
 ///////////////////////////////////////////////////////////////////////////////
 
 impl ops::Sub<Vec2> for Vec2 {

@@ -63,7 +63,7 @@ pub struct StrideLengthError {
 /// assert_eq!(stride * length as i8, delta);
 /// ```
 pub fn get_stride(delta: IVec2) -> (IVec2, u8) {
-    let gcd = (delta.x().abs() as u8).gcd(delta.y().abs() as u8);
+    let gcd = (delta.x().unsigned_abs()).gcd(delta.y().unsigned_abs());
     (delta / gcd as i8, gcd)
 }
 

@@ -1,4 +1,3 @@
-use eframe::wgpu::CompilationInfo;
 use egui::{Align, FontFamily, Label, Layout, RichText, Vec2, vec2};
 
 use crate::{app::Screen, components};

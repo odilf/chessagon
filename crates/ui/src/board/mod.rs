@@ -62,7 +62,7 @@ impl GuiBoard {
     /// Creates a new board on the graphical user interface.
     ///
     /// Returns `None` where there is no wgpu render state available.
-    pub fn new<'a>(frame: &eframe::Frame, board: &Board) -> Option<Self> {
+    pub fn new(frame: &eframe::Frame, board: &Board) -> Option<Self> {
         // Get the WGPU render state from the eframe creation context. This can also be retrieved
         // from `eframe::Frame` when you don't have a `CreationContext` available.
         let wgpu_render_state = frame.wgpu_render_state.as_ref()?;
@@ -80,7 +80,7 @@ impl GuiBoard {
     /// - Updating the selection.
     pub fn update(&mut self, board: &Board, color: Color, ctx: &egui::Context) {
         if let Some((selected_tile, _)) = self.selected_tile {
-            self.select(&board, selected_tile, color, ctx);
+            self.select(board, selected_tile, color, ctx);
         }
         ctx.request_repaint();
     }

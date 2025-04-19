@@ -265,14 +265,13 @@ impl Board {
     /// An iterator over all legal moves in the current for position that the player of the given color can do.
     pub fn possible_moves(&self, color: Color) -> impl Iterator<Item = Move> {
         Vec2::iter()
-            .map(move |origin| {
+            .flat_map(move |origin| {
                 Vec2::iter().filter_map(move |destination| {
                     self.get_move(origin, destination, color)
                         .ok()
                         .map(|(mov, _)| mov)
                 })
             })
-            .flatten()
     }
 
     /// The sum of the [`Piece::value`]s of the pieces of the given color.
@@ -370,7 +369,7 @@ mod tests {
     #[test]
     fn indices_match_diagram() {
         let rendered = diagrams::visualize_tile_property(
-            |position| Board::index(position),
+            Board::index,
             |width| char::from_digit(*width as u32 % 36, 36).unwrap(),
         );
 

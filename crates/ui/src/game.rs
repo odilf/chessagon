@@ -6,8 +6,7 @@ use chessagon_core::{
     game::{Action, TimeControl},
 };
 use chessagon_engine::{Engine as _, models::Anthony};
-use egui::{Align, Button, Context, Layout, Margin, RichText, Spacing, Ui, Vec2, vec2};
-use egui_notify::Toasts;
+use egui::{Align, Context, Layout, Margin, RichText, Spacing, Ui, Vec2, vec2};
 
 mod timer;
 
@@ -140,7 +139,7 @@ impl GameScreen {
                 tracing::debug!("got action {action:?} from opponent");
                 // TODO: Should we somehow handle invalid actions?
                 self.game
-                    .apply_action(action.clone(), self.color.other())
+                    .apply_action(action, self.color.other())
                     .expect("Action received from opponent should be valid.");
 
                 self.gui_board.update(self.game.board(), self.color, ctx);
@@ -245,10 +244,8 @@ impl GameScreen {
                 }
             }
 
-            if self.game.is_finished() {
-                if button("New game", true).clicked() {
-                    event = Some(GameScreenEvent::Reset);
-                }
+            if self.game.is_finished() && button("New game", true).clicked() {
+                event = Some(GameScreenEvent::Reset);
             }
         });
 

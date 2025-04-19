@@ -48,12 +48,14 @@ impl Color {
 impl<T> Index<Color> for [T; 2] {
     type Output = T;
     fn index(&self, index: Color) -> &Self::Output {
+        // SAFETY: `Color as usize` is always either 0 or 1, which are valid indices.
         unsafe { self.get_unchecked(index as usize) }
     }
 }
 
 impl<T> IndexMut<Color> for [T; 2] {
     fn index_mut(&mut self, index: Color) -> &mut Self::Output {
+        // SAFETY: `Color as usize` is always either 0 or 1, which are valid indices.
         unsafe { self.get_unchecked_mut(index as usize) }
     }
 }

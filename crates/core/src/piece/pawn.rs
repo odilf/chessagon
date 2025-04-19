@@ -42,7 +42,7 @@ pub fn get_move(
         }
 
         // TODO: If `max_distance == 1`, this should get optimized away, maybe that should be made explicit.
-        movement::check_blockers(origin, stride, distance, &board)?;
+        movement::check_blockers(origin, stride, distance, board)?;
         movement::check_any_blocker(destination, board)?;
 
         false
@@ -147,7 +147,7 @@ pub fn initial_position_of_file(file: u8, color: Color) -> Option<Vec2> {
     let b = (m + 5 >= file).then(|| Vec2::new_unchecked(m + 5 - file, m)); // Subtraction has to go at the end, otherwise it overflows
 
     a.into_iter()
-        .chain(b.into_iter())
+        .chain(b)
         .max_by(|a, b| color.compare_towards(a.rank(), b.rank()).reverse())
 }
 

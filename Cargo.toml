@@ -22,7 +22,7 @@ jiff = "0.1.29"
 [workspace.lints.clippy]
 missing_safety_doc = "deny"
 undocumented_unsafe_blocks = "deny"
-all = "warn"
+all = { level = "warn", priority = -1 }
 
 # [package]
 # name = "chessagon"

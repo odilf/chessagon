@@ -93,14 +93,14 @@ impl Piece {
 
     /// Gets the move from `origin` to `destination` is legal, except verifying whether it leaves the king in a check.
     pub(crate) fn get_move_no_checks(
-        &self,
+        self,
         origin: Vec2,
         destination: Vec2,
         board: &Board,
         color: Color,
     ) -> Result<(Move, MoveMeta), MoveError> {
         assert_eq!(
-            board.get(origin, color).as_ref(),
+            board.get(origin, color),
             Some(self),
             "The board needs to have a {self} in {origin}"
         );
@@ -168,6 +168,7 @@ pub enum MoveError {
 }
 
 impl Piece {
+    #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
             Piece::Pawn => "pawn",
@@ -179,6 +180,7 @@ impl Piece {
         }
     }
 
+    #[must_use]
     pub const fn representing_letter(self) -> char {
         match self {
             Piece::Pawn => 'P',
@@ -199,17 +201,18 @@ impl Piece {
     /// - Rooks are 5
     /// - Queens is 9
     /// - King is invaluable
+    #[must_use]
     pub const fn value(self) -> Option<u8> {
         Some(match self {
             Piece::Pawn => 1,
-            Piece::Knight => 3,
-            Piece::Bishop => 3,
+            Piece::Knight | Piece::Bishop => 3,
             Piece::Rook => 5,
             Piece::Queen => 9,
             Piece::King => return None,
         })
     }
 
+    #[must_use]
     pub fn emoji(self, color: Color) -> char {
         color.choose(
             match self {

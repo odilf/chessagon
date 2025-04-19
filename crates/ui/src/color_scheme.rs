@@ -91,7 +91,7 @@ impl ColorScheme {
         }
 
         ColorSchemeRgba {
-            tiles: self.tiles.map(|c| from(c)),
+            tiles: self.tiles.map(from),
             background: from(self.background),
             selected_tile: from(self.selected_tile),
             highlighted_tile: from(self.highlighted_tile),

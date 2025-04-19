@@ -1,4 +1,3 @@
-use chessagon_core::game::TimeControl;
 use egui::{Align, FontFamily, Layout, RichText, Vec2};
 
 use crate::{
