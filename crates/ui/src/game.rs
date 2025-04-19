@@ -1,4 +1,4 @@
-use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
+use std::sync::mpsc::{self, Receiver, Sender};
 
 use crate::{GuiBoard, components};
 use chessagon_core::{
@@ -78,7 +78,6 @@ impl GameScreen {
             let mut game = self.game.clone();
             let player_color = self.color;
             std::thread::spawn(move || {
-                // TODO: This has clearly too many unwraps
                 let span = tracing::info_span!("Opponent engine");
                 let _guard = span.enter();
 
@@ -90,17 +89,24 @@ impl GameScreen {
 
                     if game.turn() == player_color {
                         tracing::debug!("Waiting for player action");
-                        let player_action = player_receiver.recv().unwrap();
+                        let Ok(player_action) = player_receiver.recv() else {
+                            tracing::debug!("`player_receiver` channel was closed");
+                            return;
+                        };
 
                         tracing::debug!("Got {player_action:?} from player");
-                        game.apply_action(player_action, player_color).unwrap();
+                        game.apply_action(player_action, player_color)
+                            .expect("Actions received should be valid.");
                     } else {
                         tracing::debug!("getting engine action");
                         let action = opponent.get_action(&game);
 
                         tracing::debug!(?action);
-                        opponent_sender.send(action).unwrap();
-                        game.apply_action(action, player_color.other()).unwrap();
+                        opponent_sender
+                            .send(action)
+                            .unwrap_or_else(|_| tracing::warn!("Opponent sender disconnectd"));
+                        game.apply_action(action, player_color.other())
+                            .expect("Actions received should be valid.");
                     }
                 }
             });
@@ -129,26 +135,21 @@ impl GameScreen {
 
 impl GameScreen {
     pub fn draw(&mut self, ui: &mut Ui, ctx: &Context) -> Option<GameScreenEvent> {
-        match self
-            .connection
-            .as_ref()?
-            .opponent_action_receiver
-            .try_recv()
-        {
-            Ok(action) => {
-                tracing::debug!("got action {action:?} from opponent");
-                // TODO: Should we somehow handle invalid actions?
-                self.game
-                    .apply_action(action, self.color.other())
-                    .expect("Action received from opponent should be valid.");
+        let Some(connection) = &self.connection else {
+            tracing::warn!(
+                "Trying to draw game screen but connections has not been established yet."
+            );
+            return None;
+        };
 
-                self.gui_board.update(self.game.board(), self.color, ctx);
-            }
-            // Opponent hasn't moved yet.
-            Err(TryRecvError::Empty) => (),
-            Err(TryRecvError::Disconnected) => {
-                tracing::warn!("Opponent action receiver disconnected!");
-            }
+        if let Ok(action) = connection.opponent_action_receiver.try_recv() {
+            tracing::debug!("got action {action:?} from opponent");
+            // TODO: Should we somehow handle invalid actions?
+            self.game
+                .apply_action(action, self.color.other())
+                .expect("Action received from opponent should be valid.");
+
+            self.gui_board.update(self.game.board(), self.color, ctx);
         }
 
         let mut event = None;
@@ -161,6 +162,7 @@ impl GameScreen {
 
             ui.allocate_space(vec2(padding, ui.available_height()));
 
+            // Board
             let mov = ui
                 .allocate_ui_with_layout(
                     vec2(board_width, ui.available_height()),
@@ -169,6 +171,7 @@ impl GameScreen {
                 )
                 .inner;
 
+            // Sidebar
             ui.allocate_ui_with_layout(
                 vec2(panel_size, ui.available_height()),
                 Layout::top_down(Align::Center),
@@ -275,18 +278,24 @@ impl GameScreen {
     ///
     /// If the action is invalid.
     pub fn apply_action(&mut self, action: Action) {
-        // TODO: Handle sending error more gracefully
-        self.connection
-            .as_ref()
-            .unwrap()
-            .action_sender
-            .send(action)
-            .map_err(|err| tracing::error!(?err))
-            .expect("TODO: Handle sending errors");
+        // Only play on your turn
+        if self.game.turn() != self.color {
+            return;
+        }
 
         self.game
             .apply_action(action, self.color)
-            .expect("Given action should have been generated validly");
+            .unwrap_or_else(|err| tracing::error!(?err));
+
+        let Some(connection) = &self.connection else {
+            tracing::warn!("Trying to send action {action:?} but game is not connected yet.");
+            return;
+        };
+
+        // TODO: Handle sending error more gracefully
+        if let Err(err) = connection.action_sender.send(action) {
+            tracing::error!("Error when sending {action:?}: {err}");
+        }
     }
 }
 
