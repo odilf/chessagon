@@ -59,6 +59,9 @@ impl Default for GuiBoard {
 }
 
 impl GuiBoard {
+    /// Creates a new board on the graphical user interface.
+    ///
+    /// Returns `None` where there is no wgpu render state available.
     pub fn new<'a>(frame: &eframe::Frame, board: &Board) -> Option<Self> {
         // Get the WGPU render state from the eframe creation context. This can also be retrieved
         // from `eframe::Frame` when you don't have a `CreationContext` available.

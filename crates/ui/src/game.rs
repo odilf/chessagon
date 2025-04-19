@@ -11,58 +11,73 @@ use egui_notify::Toasts;
 
 mod timer;
 
+// TODO: Fix this god awful name.
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub struct GameScreen<S = Sender<Action>, R = Receiver<Action>> {
+pub enum GameOrInitGameScreen {
+    InitGame { time_control: TimeControl },
+    Game(GameScreen),
+}
+impl GameOrInitGameScreen {
+    /// Applies a function if the variant is `Self::Game`.
+    pub fn map_game(&mut self, f: impl FnOnce(&mut GameScreen)) {
+        match self {
+            Self::InitGame { .. } => (),
+            Self::Game(game) => f(game),
+        }
+    }
+}
+
+impl Default for GameOrInitGameScreen {
+    fn default() -> Self {
+        Self::InitGame {
+            time_control: TimeControl::blitz(),
+        }
+    }
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub struct GameScreen {
     /// The color of the player
     pub color: Color,
     pub game: Game,
     pub gui_board: GuiBoard,
-
-    /// Send your actions.
     #[serde(skip)]
-    pub action_sender: S,
-
-    /// Receive opponent's actions.
-    #[serde(skip)]
-    pub opponent_action_receiver: R,
+    pub connection: Option<GameConnection>,
 }
 
-// TODO: Maybe it's just easier to have two distinct types...
-pub type GameScreenDisconnected = GameScreen<(), ()>;
+#[derive(Debug)]
+pub struct GameConnection {
+    pub action_sender: Sender<Action>,
+    pub opponent_action_receiver: Receiver<Action>,
+}
 
 pub enum GameScreenEvent {
     Reset,
 }
 
-impl GameScreenDisconnected {
+impl GameScreen {
     fn connect_to_channel(
-        self,
+        &mut self,
         opponent_action_receiver: Receiver<Action>,
-    ) -> (GameScreen, Receiver<Action>) {
+    ) -> Receiver<Action> {
         let (sender, receiver) = mpsc::channel();
+        self.connection = Some(GameConnection {
+            action_sender: sender,
+            opponent_action_receiver,
+        });
 
-        (
-            GameScreen {
-                action_sender: sender,
-                opponent_action_receiver,
-
-                color: self.color,
-                game: self.game,
-                gui_board: self.gui_board,
-            },
-            receiver,
-        )
+        receiver
     }
 
-    pub fn connect(self) -> GameScreen {
+    pub fn connect(&mut self) {
         let mut opponent = Anthony::new(self.color.other(), self.game.time_control());
 
         let (opponent_sender, opponent_receiver) = mpsc::channel();
-        let (output, player_receiver) = self.connect_to_channel(opponent_receiver);
+        let player_receiver = self.connect_to_channel(opponent_receiver);
 
         {
-            let mut game = output.game.clone();
-            let player_color = output.color;
+            let mut game = self.game.clone();
+            let player_color = self.color;
             std::thread::spawn(move || {
                 // TODO: This has clearly too many unwraps
                 let span = tracing::info_span!("Opponent engine");
@@ -91,45 +106,50 @@ impl GameScreenDisconnected {
                 }
             });
         }
-
-        output
     }
 
-    pub fn new(frame: &mut eframe::Frame) -> Option<GameScreen> {
-        let game = Game::new(TimeControl::rapid());
+    /// Creates a new game screen.
+    ///
+    /// Returns `None` when [`GuiBoard::new`] does (no wgpu render state available).
+    pub fn new(frame: &mut eframe::Frame, time_control: TimeControl) -> Option<GameScreen> {
+        let game = Game::new(time_control);
         let gui_board = GuiBoard::new(frame, game.board())?;
 
-        let disconnected = GameScreenDisconnected {
+        let mut output = GameScreen {
             color: Color::White,
             game,
             gui_board,
-            action_sender: (),
-            opponent_action_receiver: (),
+            connection: None,
         };
 
-        Some(disconnected.connect())
+        output.connect();
+
+        Some(output)
     }
 }
 
 impl GameScreen {
-    pub fn draw(
-        &mut self,
-        ui: &mut Ui,
-        ctx: &Context,
-        _toasts: &mut Toasts,
-    ) -> Option<GameScreenEvent> {
-        match self.opponent_action_receiver.try_recv() {
+    pub fn draw(&mut self, ui: &mut Ui, ctx: &Context) -> Option<GameScreenEvent> {
+        match self
+            .connection
+            .as_ref()?
+            .opponent_action_receiver
+            .try_recv()
+        {
             Ok(action) => {
                 tracing::debug!("got action {action:?} from opponent");
                 // TODO: Should we somehow handle invalid actions?
                 self.game
-                    .apply_action(action, self.color.other())
+                    .apply_action(action.clone(), self.color.other())
                     .expect("Action received from opponent should be valid.");
 
                 self.gui_board.update(self.game.board(), self.color, ctx);
             }
+            // Opponent hasn't moved yet.
             Err(TryRecvError::Empty) => (),
-            Err(TryRecvError::Disconnected) => {}
+            Err(TryRecvError::Disconnected) => {
+                tracing::warn!("Opponent action receiver disconnected!");
+            }
         }
 
         let mut event = None;
@@ -259,7 +279,10 @@ impl GameScreen {
     /// If the action is invalid.
     pub fn apply_action(&mut self, action: Action) {
         // TODO: Handle sending error more gracefully
-        self.action_sender
+        self.connection
+            .as_ref()
+            .unwrap()
+            .action_sender
             .send(action)
             .map_err(|err| tracing::error!(?err))
             .expect("TODO: Handle sending errors");
@@ -268,4 +291,73 @@ impl GameScreen {
             .apply_action(action, self.color)
             .expect("Given action should have been generated validly");
     }
+}
+
+/// Draw the game initialization screen where you select the time control.
+///
+/// Returns whether to start the game.
+pub fn draw_init_game_screen(ui: &mut Ui, time_control: &mut TimeControl) -> bool {
+    const MAX_WIDTH: f32 = 300.0;
+    let margin = ((ui.available_width() - MAX_WIDTH) / 2.0).max(0.0);
+    // effective width, in case the screen is smaller than 360.
+    let width = ui.available_width() - 2.0 * margin;
+
+    ui.horizontal(|ui| {
+        ui.add_space(margin);
+        ui.vertical(|ui| {
+            ui.add_space(24.0);
+            ui.label(RichText::new("New game").strong().size(16.0));
+            ui.add_space(8.0);
+
+            ui.label("Select a time control:");
+
+            const SPACING: f32 = 4.0;
+            let button_size = width / 3.0 - 2.0 * SPACING;
+
+            let mut tc_button = |ui: &mut egui::Ui, tc| {
+                ui.add_enabled_ui(*time_control != tc, |ui| {
+                    let button = ui.add_sized(
+                        Vec2::splat(button_size),
+                        components::button(
+                            RichText::new(format!("{}\n({})", tc.formatted(), tc.category()))
+                                .size(16.0),
+                        ),
+                    );
+
+                    if button.clicked() {
+                        *time_control = tc;
+                    }
+                })
+            };
+
+            ui.spacing_mut().item_spacing = Vec2::splat(SPACING);
+            ui.horizontal(|ui| {
+                tc_button(ui, TimeControl::mps(1, 0));
+                tc_button(ui, TimeControl::mps(2, 1));
+                tc_button(ui, TimeControl::mps(3, 0));
+            });
+            ui.horizontal(|ui| {
+                tc_button(ui, TimeControl::mps(3, 2));
+                tc_button(ui, TimeControl::mps(5, 0));
+                tc_button(ui, TimeControl::mps(5, 3));
+            });
+            ui.horizontal(|ui| {
+                tc_button(ui, TimeControl::mps(10, 0));
+                tc_button(ui, TimeControl::mps(10, 5));
+                tc_button(ui, TimeControl::mps(15, 10));
+            });
+            ui.horizontal(|ui| {
+                tc_button(ui, TimeControl::mps(30, 0));
+                tc_button(ui, TimeControl::mps(30, 20));
+            });
+
+            ui.add_sized(
+                Vec2::new(width, 64.0),
+                components::button(RichText::new("Start game").strong().size(16.0)),
+            )
+            .clicked()
+        })
+        .inner
+    })
+    .inner
 }

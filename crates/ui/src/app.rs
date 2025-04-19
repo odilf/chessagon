@@ -1,31 +1,26 @@
-use std::fmt;
-
+use chessagon_core::game::TimeControl;
 use egui::{Align, FontFamily, Layout, RichText, Vec2};
-use egui_notify::Toasts;
 
 use crate::{
     ColorScheme,
     color_scheme::ColorSchemeRgba,
     components,
-    game::{GameScreen, GameScreenDisconnected, GameScreenEvent},
+    game::{self, GameOrInitGameScreen, GameScreen, GameScreenEvent},
     main_menu::MainMenu,
 };
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Default, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(default)]
-pub struct App<GS = GameScreen> {
+pub struct App {
     screen: Screen,
     color_scheme: ColorScheme,
 
     #[serde(skip)]
     main_menu_screen: MainMenu,
-    game_screen: Option<GS>,
-
-    #[serde(skip)]
-    toasts: egui_notify::Toasts,
+    game_screen: GameOrInitGameScreen,
+    // #[serde(skip)]
+    // toasts: egui_notify::Toasts,
 }
-
-type AppUninit = App<GameScreenDisconnected>;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum Screen {
@@ -35,22 +30,15 @@ pub enum Screen {
     Game,
 }
 
-impl AppUninit {
-    fn init(self, cc: &eframe::CreationContext<'_>) -> App {
+impl App {
+    fn init(&mut self, cc: &eframe::CreationContext<'_>) {
         // To load svgs
         egui_extras::install_image_loaders(&cc.egui_ctx);
 
         // TODO: Maybe this should be passed by reference.
         App::set_style(cc, self.color_scheme);
 
-        App {
-            game_screen: self.game_screen.map(|gs| gs.connect()),
-
-            screen: self.screen,
-            color_scheme: self.color_scheme,
-            main_menu_screen: self.main_menu_screen,
-            toasts: self.toasts,
-        }
+        self.game_screen.map_game(|game| game.connect());
     }
 }
 
@@ -61,22 +49,16 @@ impl App {
         if let Some(storage) = cc.storage {
             crate::board::gpu::prepare(cc.wgpu_render_state.as_ref().unwrap());
 
-            let app: AppUninit = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            let mut app: App = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
 
             tracing::info!("Loaded app state from storage.");
             tracing::debug!("Loaded app state is {app:?}");
 
-            return app.init(cc);
+            app.init(cc);
+            return app;
         }
 
-        AppUninit {
-            screen: Screen::default(),
-            color_scheme: ColorScheme::purple(),
-            game_screen: None,
-            main_menu_screen: MainMenu::default(),
-            toasts: Toasts::new(),
-        }
-        .init(cc)
+        App::default()
     }
 
     /// Sets the style for the app.
@@ -123,28 +105,28 @@ impl App {
     }
 }
 
-impl<GS: fmt::Debug> fmt::Debug for App<GS> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("App")
-            .field("screen", &self.screen)
-            .field("color_scheme", &self.color_scheme)
-            .field("main_menu_screen", &self.main_menu_screen)
-            .field("game_screen", &self.game_screen)
-            .finish_non_exhaustive()
-    }
-}
+// impl<GS: fmt::Debug> fmt::Debug for App<GS> {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         f.debug_struct("App")
+//             .field("screen", &self.screen)
+//             .field("color_scheme", &self.color_scheme)
+//             .field("main_menu_screen", &self.main_menu_screen)
+//             .field("game_screen", &self.game_screen)
+//             .finish_non_exhaustive()
+//     }
+// }
 
-impl<GS> Default for App<GS> {
-    fn default() -> Self {
-        Self {
-            screen: Default::default(),
-            color_scheme: Default::default(),
-            main_menu_screen: Default::default(),
-            game_screen: Default::default(),
-            toasts: Default::default(),
-        }
-    }
-}
+// impl<GS> Default for App<GS> {
+//     fn default() -> Self {
+//         Self {
+//             screen: Default::default(),
+//             color_scheme: Default::default(),
+//             main_menu_screen: Default::default(),
+//             game_screen: Default::default(),
+//             toasts: Default::default(),
+//         }
+//     }
+// }
 
 impl eframe::App for App {
     /// Called by the frame work to save state before shutdown.
@@ -201,29 +183,32 @@ impl eframe::App for App {
                 Screen::Options => {
                     ui.label("Work in progress.");
                 }
-                Screen::Game => {
-                    if let Some(game_screen) = &mut self.game_screen {
-                        let event = game_screen.draw(ui, ctx, &mut self.toasts);
+                Screen::Game => match &mut self.game_screen {
+                    GameOrInitGameScreen::Game(game_screen) => {
+                        let event = game_screen.draw(ui, ctx);
                         match event {
                             None => (),
-                            Some(GameScreenEvent::Reset) => self.game_screen = None,
-                        }
-                    } else {
-                        ui.label("y no game??");
-
-                        if ui.button("Start game").clicked() {
-                            // TODO: Remove `unwrap`
-                            self.game_screen = Some(GameScreen::new(frame).unwrap())
+                            Some(GameScreenEvent::Reset) => {
+                                self.game_screen = GameOrInitGameScreen::default()
+                            }
                         }
                     }
-                }
+                    GameOrInitGameScreen::InitGame { time_control } => {
+                        if game::draw_init_game_screen(ui, time_control) {
+                            // TODO: Maybe we shouldn't unwrap here.
+                            self.game_screen = GameOrInitGameScreen::Game(
+                                GameScreen::new(frame, *time_control).unwrap(),
+                            )
+                        }
+                    }
+                },
             }
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 egui::warn_if_debug_build(ui);
             });
 
-            self.toasts.show(ctx);
+            // self.toasts.show(ctx);
         });
     }
 }
